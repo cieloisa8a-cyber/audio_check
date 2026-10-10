@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#142b2a">
+    <meta name="description" content="Prueba auditiva exploratoria con tonos puros y registro personal.">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    <link rel="stylesheet" href="/static/app.css">
+    <title>Audio Check | Prueba auditiva</title>
+  </head>
+  <body>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">PERCEPCIÓN DE TONOS · 250–8000 HZ</p>
+        <h1 id="page-title">Escucha con<br><em>atención.</em></h1>
+        <p class="intro-copy">Un registro orientativo de los tonos que percibes, oído por oído.</p>
+      </section>
+
+      <section id="setup" class="workspace" aria-labelledby="setup-title">
+        <div class="section-heading">
+          <div><p class="eyebrow">ANTES DE EMPEZAR</p><h2 id="setup-title">Prepara tu escucha</h2></div>
+          <span class="step-count">01 <span>/ 03</span></span>
+        </div>
+        <div class="notice" role="note">
+          <span class="notice-icon" aria-hidden="true">!</span>
+          <p>Este ejercicio no es una audiometría clínica. El navegador no puede comprobar el tipo de audífonos ni calibrar el volumen acústico.</p>
+        </div>
+        <label class="check-row">
+          <input id="wired-check" type="checkbox">
+          <span class="check-box" aria-hidden="true"></span>
+          <span>Confirmo que conecté audífonos <strong>alámbricos</strong> (3.5 mm o USB-C) y que no estoy usando altavoces.</span>
+        </label>
+        <label class="check-row">
+          <input id="volume-check" type="checkbox">
+          <span class="check-box" aria-hidden="true"></span>
+          <span>Dejé el volumen del dispositivo bajo. Detendré la prueba si siento molestia.</span>
+        </label>
+        <div class="setup-actions">
+          <label class="ear-select-label" for="ear-select">OÍDO</label>
+          <select id="ear-select" aria-label="Seleccionar oído">
+            <option value="left">Izquierdo</option>
+            <option value="right">Derecho</option>
+          </select>
+          <button id="start-button" class="button button-primary" type="button" disabled>
+            Comenzar <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <p id="audio-support" class="support-message" role="status"></p>
+      </section>
+
+      <section id="test-panel" class="workspace test-panel" aria-labelledby="test-title" hidden>
+        <div class="section-heading">
+          <div><p class="eyebrow">PRUEBA EN CURSO</p><h2 id="test-title">Oído izquierdo</h2></div>
+          <span id="frequency-progress" class="step-count">1 <span>/ 6</span></span>
+        </div>
+        <div class="tone-display">
+          <span class="tone-orbit" aria-hidden="true"><span></span></span>
+          <div><span id="frequency-label" class="frequency-value">1000</span><span class="frequency-unit">Hz</span></div>
+        </div>
+        <p id="level-label" class="level-label">Nivel relativo: −50 dBFS</p>
+        <p class="instruction">Reproduce el tono. Luego indica si lo percibiste con claridad.</p>
+        <div class="test-actions">
+          <button id="play-button" class="button button-primary" type="button"><span aria-hidden="true">▶</span> Reproducir tono</button>
+          <button id="heard-button" class="button button-quiet" type="button" disabled>Sí lo oí</button>
+          <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
+        </div>
+        <p id="test-status" class="support-message" aria-live="polite"></p>
+        <p class="fine-print">Tono puro de 1 segundo. Nivel digital relativo, sin calibración acústica.</p>
+      </section>
+
+      <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
+        <div class="section-heading">
+          <div><p class="eyebrow">RESUMEN DE SESIÓN</p><h2 id="results-title">Tu registro</h2></div>
+          <span class="step-count">03 <span>/ 03</span></span>
+        </div>
+        <p class="chart-caption">Primer nivel relativo percibido · dBFS <span>(no calibrado)</span></p>
+        <div class="chart-wrap"><canvas id="audiogram" role="img" aria-label="Gráfica de niveles percibidos por frecuencia"></canvas></div>
+        <div class="chart-legend"><span><i class="legend-dot left-dot"></i>Izquierdo</span><span><i class="legend-dot right-dot"></i>Derecho</span></div>
+        <div class="result-actions">
+          <button id="pdf-button" class="button button-primary" type="button"><span aria-hidden="true">↓</span> Exportar PDF</button>
+          <button id="share-button" class="button button-quiet" type="button"><span aria-hidden="true">↗</span> Compartir</button>
+          <button id="other-ear-button" class="button button-text" type="button">Medir el otro oído</button>
+        </div>
+        <p class="result-disclaimer">No es una audiometría clínica ni un diagnóstico. Los resultados dependen del dispositivo y los audífonos.</p>
+      </section>
+    </main>
+
+    <footer><span>OÍDO / 01</span><span>PRIVADO EN ESTE DISPOSITIVO</span></footer>
+    <dialog id="headphone-dialog" aria-labelledby="headphone-dialog-title">
+      <div class="headphone-dialog-icon" aria-hidden="true">!</div>
+      <h2 id="headphone-dialog-title">Auriculares no detectados</h2>
+      <p class="headphone-dialog-message">Sin auriculares conectados, no tendras la experiencia completa de la prueba.</p>
+      <p id="headphone-dialog-support" class="headphone-dialog-support"></p>
+      <button id="headphone-retry-button" class="button button-quiet" type="button">Volver a comprobar</button>
+      <button id="headphone-continue-button" class="button button-primary" type="button">Continuar sin auriculares</button>
+    </dialog>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
