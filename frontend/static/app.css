@@ -67,8 +67,8 @@ select { min-height: 42px; padding: 0 29px 0 11px; border: 1px solid var(--line)
 .results-panel { animation-delay: 0s; }
 .chart-caption { margin-bottom: 6px; font-size: 14px; font-weight: 600; }
 .chart-caption span { color: var(--muted); font-size: 12px; font-weight: 400; }
-.chart-wrap { width: 100%; overflow: hidden; }
-#audiogram { display: block; width: 100%; height: 330px; }
+.chart-wrap { width: 100%; height: clamp(250px, 42vw, 360px); overflow: visible; }
+#audiogram { display: block; width: 100%; height: 100%; }
 .chart-legend { display: flex; justify-content: flex-end; gap: 18px; color: var(--muted); font-size: 12px; }
 .chart-legend span { display: flex; align-items: center; gap: 7px; }
 .legend-dot { width: 9px; aspect-ratio: 1; border-radius: 50%; }
@@ -97,7 +97,6 @@ dialog#headphone-dialog h2 { margin-bottom: 10px; }
   .test-actions .button-primary { flex-basis: 100%; }
   .result-actions .button { flex: 1 1 auto; }
   .result-actions .button-text { flex-basis: 100%; justify-content: flex-start; }
-  #audiogram { height: 290px; }
   footer { width: min(100% - 28px, 760px); flex-wrap: wrap; align-items: center; padding-top: 12px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); font-size: clamp(7px, 2.2vw, 9px); }
   footer span:last-child { margin-left: auto; text-align: right; }
 }

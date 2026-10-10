@@ -34,11 +34,11 @@ def build_report(payload: ReportRequest) -> bytes:
         ) * graph_width
 
     def y_position(level: int) -> float:
-        return bottom + ((-20 - level) / 40) * graph_height
+        return bottom + ((level + 100) / 100) * graph_height
 
     pdf.setStrokeColor(colors.HexColor("#d5dfdb"))
     pdf.setLineWidth(0.6)
-    for level in (-20, -30, -40, -50, -60):
+    for level in range(0, -101, -20):
         y = y_position(level)
         pdf.line(left, y, right, y)
         pdf.setFillColor(colors.HexColor("#526260"))

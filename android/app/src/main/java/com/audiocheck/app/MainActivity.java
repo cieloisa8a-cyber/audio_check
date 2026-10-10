@@ -350,7 +350,7 @@ public final class MainActivity extends Activity {
         float right = 750;
         float bottom = 500;
         float top = 118;
-        for (int level = -20; level >= -60; level -= 10) {
+        for (int level = 0; level >= -100; level -= 20) {
             float y = yPosition(level, top, bottom);
             paint.setColor(GRID);
             paint.setStrokeWidth(0.6f);
@@ -454,7 +454,7 @@ public final class MainActivity extends Activity {
     }
 
     private static float yPosition(int level, float top, float bottom) {
-        return bottom - ((-20f - level) / 40f) * (bottom - top);
+        return top + (-level / 100f) * (bottom - top);
     }
 
     private static final class Measurement {

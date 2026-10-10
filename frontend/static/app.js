@@ -234,25 +234,33 @@ function nextFrequency() {
 function renderChart() {
   const canvas = elements.canvas;
   const bounds = canvas.getBoundingClientRect();
-  const ratio = window.devicePixelRatio || 1;
+  if (bounds.width <= 0 || bounds.height <= 0) return;
+
+  const ratio = Math.min(window.devicePixelRatio || 1, 3);
   canvas.width = Math.max(1, Math.round(bounds.width * ratio));
-  canvas.height = Math.round(330 * ratio);
+  canvas.height = Math.max(1, Math.round(bounds.height * ratio));
   const context = canvas.getContext("2d");
-  context.scale(ratio, ratio);
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
   const width = bounds.width;
-  const height = 330;
-  const plot = { left: 54, right: width - 16, top: 25, bottom: height - 48 };
+  const height = bounds.height;
+  const pointRadius = 5;
+  const plot = {
+    left: width < 360 ? 44 : 54,
+    right: width - 24,
+    top: 18 + pointRadius,
+    bottom: height - 42 - pointRadius,
+  };
   const logMin = Math.log10(FREQUENCIES[0]);
   const logMax = Math.log10(FREQUENCIES.at(-1));
   const x = (frequency) => plot.left + ((Math.log10(frequency) - logMin) / (logMax - logMin)) * (plot.right - plot.left);
-  const y = (level) => plot.top + ((-60 - level) / 40) * (plot.bottom - plot.top);
+  const y = (level) => plot.top + (-level / 100) * (plot.bottom - plot.top);
 
   context.clearRect(0, 0, width, height);
-  context.font = "12px ui-sans-serif, system-ui, sans-serif";
+  context.font = `${width < 360 ? 10 : 12}px ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = "right";
   context.textBaseline = "middle";
-  for (let level = -20; level >= -60; level -= 10) {
+  for (let level = 0; level >= -100; level -= 20) {
     const rowY = y(level);
     context.strokeStyle = "#dce4de";
     context.lineWidth = 1;
@@ -290,7 +298,7 @@ function renderChart() {
     points.forEach((point) => {
       context.fillStyle = styles[ear];
       context.beginPath();
-      context.arc(point.x, point.y, 5, 0, Math.PI * 2);
+      context.arc(point.x, point.y, pointRadius, 0, Math.PI * 2);
       context.fill();
       context.strokeStyle = "#fff";
       context.lineWidth = 2;
@@ -376,9 +384,16 @@ elements.otherEarButton.addEventListener("click", () => {
   elements.setup.scrollIntoView({ behavior: "smooth", block: "start" });
   updateSetupState();
 });
-window.addEventListener("resize", () => {
-  if (!elements.resultsPanel.hidden) renderChart();
-});
+if ("ResizeObserver" in window) {
+  const chartObserver = new ResizeObserver(() => {
+    if (!elements.resultsPanel.hidden) renderChart();
+  });
+  chartObserver.observe(elements.canvas.parentElement);
+} else {
+  window.addEventListener("resize", () => {
+    if (!elements.resultsPanel.hidden) renderChart();
+  });
+}
 
 if ("serviceWorker" in navigator && !window.AndroidApp) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
