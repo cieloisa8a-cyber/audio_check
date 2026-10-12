@@ -12,7 +12,7 @@
 
 ## 📌 Descripción general
 
-**Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (125 Hz – 8000 Hz).
+**Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (250 Hz – 8000 Hz).
 
 La aplicación permite evaluar ambos oídos de forma independiente, trazando un audiograma interactivo en escala digital relativa (**dBFS**) y exportando un reporte clínico referencial en formato **PDF**, con los datos del paciente (nombre y edad).
 
@@ -24,8 +24,8 @@ La aplicación permite evaluar ambos oídos de forma independiente, trazando un 
 ## ✨ Características principales
 
 - **Evaluación binaural independiente:** Permite medir el oído izquierdo y derecho por separado, o ambos en una misma sesión.
-- **Rango de 11 frecuencias:** Incluye octavas estándar e inter-octavas clínicas:
-  $$\text{125, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000 y 8000 Hz}$$
+- **Rango de 8 frecuencias:** Incluye octavas estándar e inter-octavas clínicas:
+  $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
 - **Audiograma dinámico:** Trazado en tiempo real en canvas HTML5 optimizado para altas densidades de píxeles (Retina / pantallas móviles).
 - **Exportación en PDF vectorial:**
   - Generación en el backend con **ReportLab** para la versión web.

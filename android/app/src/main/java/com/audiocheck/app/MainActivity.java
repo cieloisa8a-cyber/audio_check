@@ -54,7 +54,7 @@ public final class MainActivity extends Activity {
     private static final int GRID = 0xffd5dfdb;
     private static final int LEFT = 0xffdc684c;
     private static final int RIGHT = 0xff237e72;
-    private static final int[] FREQUENCIES = {125, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000, 8000};
+    private static final int[] FREQUENCIES = {250, 500, 1000, 2000, 3000, 4000, 6000, 8000};
     private static final int MAX_MEASUREMENTS = FREQUENCIES.length * 2;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -535,8 +535,7 @@ public final class MainActivity extends Activity {
         canvas.drawText(label, legendX + 8, 76, paint);
     }
 
-    // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
-    // (incluye inter-octavas 750, 1500, 3000, 6000), igual que reports.py.
+    // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice, igual que reports.py.
     private static float xPosition(int frequency, float left, float right) {
         int index = 0;
         for (int i = 0; i < FREQUENCIES.length; i++) {

@@ -1,4 +1,4 @@
-const FREQUENCIES = [125, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000, 8000];
+const FREQUENCIES = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
 const MIN_LEVEL = -60;
 const MAX_LEVEL = -20;
 const LEVEL_STEP = 5;
@@ -620,8 +620,7 @@ function renderChart() {
     top: 18 + pointRadius,
     bottom: height - 42 - pointRadius,
   };
-  // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
-  // (incluye inter-octavas 750, 1500, 3000, 6000).
+  // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice.
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;

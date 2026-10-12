@@ -1,12 +1,13 @@
-const CACHE_NAME = "oido-shell-v25";
+const CACHE_NAME = "oido-shell-v27";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/static/app.css?v=pdf-fix-4",
-  "/static/app.js?v=pdf-fix-4",
-  "/static/icon.svg",
+  "/static/app.css?v=pdf-fix-6",
+  "/static/app.js?v=pdf-fix-6",
+  "/static/icons/logo%20audiometria.jpg",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",
+  "/static/icons/favicon.png",
 ];
 
 self.addEventListener("install", (event) => {

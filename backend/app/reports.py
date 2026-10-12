@@ -8,7 +8,7 @@ from reportlab.pdfgen import canvas
 from .schemas import ReportRequest
 
 
-FREQUENCIES = (125, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000, 8000)
+FREQUENCIES = (250, 500, 1000, 2000, 3000, 4000, 6000, 8000)
 
 
 def build_report(payload: ReportRequest) -> bytes:
@@ -40,8 +40,7 @@ def build_report(payload: ReportRequest) -> bytes:
     bottom, top = 112, page_height - 118
     graph_width, graph_height = right - left, top - bottom
 
-    # Eje X equidistante: 11 columnas (incluye inter-octavas) repartidas
-    # uniformemente entre left (96 pt) y right (750 pt) en hoja carta horizontal.
+    # Eje X equidistante: columnas repartidas uniformemente entre left (96 pt) y right (750 pt)
     column_width = graph_width / (len(FREQUENCIES) - 1)
 
     def x_position(frequency: int) -> float:
