@@ -18,6 +18,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowInsets;
 import android.webkit.JavascriptInterface;
@@ -36,6 +37,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,7 +54,8 @@ public final class MainActivity extends Activity {
     private static final int GRID = 0xffd5dfdb;
     private static final int LEFT = 0xffdc684c;
     private static final int RIGHT = 0xff237e72;
-    private static final int[] FREQUENCIES = {250, 500, 1000, 2000, 4000, 8000};
+    private static final int[] FREQUENCIES = {125, 250, 500, 750, 1000, 1500, 2000, 3000, 4000, 6000, 8000};
+    private static final int MAX_MEASUREMENTS = FREQUENCIES.length * 2;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private WebView webView;
@@ -141,7 +144,7 @@ public final class MainActivity extends Activity {
         if (webView == null) return;
         boolean connected = areWiredHeadphonesConnected();
         mainHandler.post(() -> webView.evaluateJavascript(
-                "window.setHeadphonesDetected && window.setHeadphonesDetected(" + connected + ")",
+                "if (typeof checkHeadphones === 'function') { checkHeadphones(); } else if (window.setHeadphonesDetected) { window.setHeadphonesDetected(" + connected + "); }",
                 null
         ));
     }
@@ -154,6 +157,15 @@ public final class MainActivity extends Activity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            Toast.makeText(this, "El control de volumen está inhabilitado por motivos clínicos.", Toast.LENGTH_SHORT).show();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
     }
 
     private final class LocalAppClient extends WebViewClient {
@@ -219,6 +231,30 @@ public final class MainActivity extends Activity {
 
     private final class AndroidBridge {
         @JavascriptInterface
+        public String getAudioOutputType() {
+            if (audioManager == null) return "unknown";
+            AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+            boolean bluetooth = false;
+            for (AudioDeviceInfo device : devices) {
+                int type = device.getType();
+                if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                        || type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+                        || type == AudioDeviceInfo.TYPE_USB_HEADSET
+                        || type == AudioDeviceInfo.TYPE_USB_DEVICE) {
+                    return "wired";
+                }
+                if (type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+                        || (Build.VERSION.SDK_INT >= 31 && type == AudioDeviceInfo.TYPE_BLE_HEADSET)) {
+                    bluetooth = true;
+                }
+            }
+            if (bluetooth) {
+                return "bluetooth";
+            }
+            return "unknown";
+        }
+
+        @JavascriptInterface
         public boolean isHeadphonesConnected() {
             return areWiredHeadphonesConnected();
         }
@@ -228,9 +264,9 @@ public final class MainActivity extends Activity {
             new Thread(() -> {
                 Uri pdfUri = null;
                 try {
-                    List<Measurement> measurements = parseMeasurements(json);
-                    byte[] pdf = createPdf(measurements);
-                    pdfUri = savePdf(pdf);
+                    ParsedReportData data = parseReportData(json);
+                    byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge);
+                    pdfUri = savePdf(pdf, data.patientName);
                     Uri savedUri = pdfUri;
                     mainHandler.post(() -> {
                         if (share) {
@@ -256,13 +292,34 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private List<Measurement> parseMeasurements(String json) throws Exception {
-        JSONArray values = new JSONArray(json);
-        if (values.length() == 0 || values.length() > 12) {
+    private static class ParsedReportData {
+        List<Measurement> measurements = new ArrayList<>();
+        String patientName;
+        Integer patientAge;
+    }
+
+    private ParsedReportData parseReportData(String json) throws Exception {
+        ParsedReportData data = new ParsedReportData();
+        JSONArray values;
+        String trimmed = json != null ? json.trim() : "";
+        if (trimmed.startsWith("{")) {
+            JSONObject obj = new JSONObject(trimmed);
+            values = obj.getJSONArray("measurements");
+            if (obj.has("patient_name") && !obj.isNull("patient_name")) {
+                data.patientName = obj.optString("patient_name", null);
+            }
+            if (obj.has("patient_age") && !obj.isNull("patient_age")) {
+                data.patientAge = obj.optInt("patient_age", -1);
+                if (data.patientAge <= 0) data.patientAge = null;
+            }
+        } else {
+            values = new JSONArray(trimmed);
+        }
+
+        if (values.length() == 0 || values.length() > MAX_MEASUREMENTS) {
             throw new IllegalArgumentException("No hay mediciones para exportar.");
         }
 
-        List<Measurement> measurements = new ArrayList<>();
         for (int i = 0; i < values.length(); i++) {
             JSONObject value = values.getJSONObject(i);
             String ear = value.getString("ear");
@@ -277,9 +334,9 @@ public final class MainActivity extends Activity {
             if (level != null && (level < -60 || level > -20)) {
                 throw new IllegalArgumentException("Nivel no válido.");
             }
-            measurements.add(new Measurement(ear, frequency, level));
+            data.measurements.add(new Measurement(ear, frequency, level));
         }
-        return measurements;
+        return data;
     }
 
     private static boolean isFrequency(int frequency) {
@@ -289,10 +346,19 @@ public final class MainActivity extends Activity {
         return false;
     }
 
-    private Uri savePdf(byte[] pdf) throws Exception {
-        String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+    private Uri savePdf(byte[] pdf, String patientName) throws Exception {
+        String filename = "Audiometria.pdf";
+        if (patientName != null && !patientName.trim().isEmpty()) {
+            String safe = Normalizer.normalize(patientName.trim(), Normalizer.Form.NFD)
+                    .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                    .replaceAll("[^a-zA-Z0-9_-]+", "_")
+                    .replaceAll("^_+|_+$", "");
+            if (!safe.isEmpty()) {
+                filename = "Audiometria_" + safe + ".pdf";
+            }
+        }
         ContentValues values = new ContentValues();
-        values.put(MediaStore.MediaColumns.DISPLAY_NAME, "resumen-auditivo-" + stamp + ".pdf");
+        values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
         values.put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf");
         values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Audio Check");
         values.put(MediaStore.MediaColumns.IS_PENDING, 1);
@@ -327,7 +393,7 @@ public final class MainActivity extends Activity {
         startActivity(Intent.createChooser(send, "Compartir resumen auditivo"));
     }
 
-    private static byte[] createPdf(List<Measurement> measurements) throws Exception {
+    private static byte[] createPdf(List<Measurement> measurements, String patientName, Integer patientAge) throws Exception {
         PdfDocument document = new PdfDocument();
         PdfDocument.Page page = document.startPage(
                 new PdfDocument.PageInfo.Builder(792, 612, 1).create()
@@ -344,7 +410,25 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(10);
-        canvas.drawText("Registro exploratorio · niveles digitales relativos (dBFS)", 48, 70, paint);
+        canvas.drawText("Registro exploratorio · niveles digitales relativos (dBFS)", 48, 68, paint);
+
+        if (patientName != null || patientAge != null) {
+            StringBuilder info = new StringBuilder();
+            if (patientName != null && !patientName.trim().isEmpty()) {
+                info.append("Paciente: ").append(patientName.trim());
+            }
+            if (patientAge != null) {
+                if (info.length() > 0) info.append("   ·   ");
+                info.append("Edad: ").append(patientAge).append(" años");
+            }
+            if (info.length() > 0) {
+                paint.setColor(INK);
+                paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
+                paint.setTextSize(10);
+                paint.setTextAlign(Paint.Align.LEFT);
+                canvas.drawText(info.toString(), 48, 84, paint);
+            }
+        }
 
         float left = 96;
         float right = 750;
@@ -390,7 +474,11 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(8);
-        canvas.drawText("La salida depende del dispositivo y los audífonos. No uses este resultado para diagnóstico.", left, 558, paint);
+        canvas.drawText("Los resultados se expresan en escala digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).", left, 558, paint);
+
+        paint.setTextSize(7.5f);
+        paint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2", 396, 582, paint);
 
         document.finishPage(page);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -447,10 +535,18 @@ public final class MainActivity extends Activity {
         canvas.drawText(label, legendX + 8, 76, paint);
     }
 
+    // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
+    // (incluye inter-octavas 750, 1500, 3000, 6000), igual que reports.py.
     private static float xPosition(int frequency, float left, float right) {
-        double first = Math.log10(FREQUENCIES[0]);
-        double last = Math.log10(FREQUENCIES[FREQUENCIES.length - 1]);
-        return (float) (left + (Math.log10(frequency) - first) / (last - first) * (right - left));
+        int index = 0;
+        for (int i = 0; i < FREQUENCIES.length; i++) {
+            if (FREQUENCIES[i] == frequency) {
+                index = i;
+                break;
+            }
+        }
+        float columnWidth = (right - left) / (FREQUENCIES.length - 1);
+        return left + index * columnWidth;
     }
 
     private static float yPosition(int level, float top, float bottom) {

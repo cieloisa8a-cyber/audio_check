@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -41,8 +43,18 @@ def service_worker() -> FileResponse:
 @app.post("/api/report.pdf", include_in_schema=False)
 def report(request: ReportRequest) -> Response:
     pdf_bytes = build_report(request)
+    filename = "Audiometria.pdf"
+    if request.patient_name:
+        normalized = unicodedata.normalize("NFKD", request.patient_name.strip()).encode("ASCII", "ignore").decode("utf-8")
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]+", "_", normalized).strip("_")
+        if safe_name:
+            filename = f"Audiometria_{safe_name}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="resumen-auditivo.pdf"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Type": "application/pdf",
+        },
     )
+

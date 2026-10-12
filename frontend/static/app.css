@@ -34,15 +34,35 @@ h2 { margin: 0; font: 650 23px var(--display); letter-spacing: 0; }
 .notice { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: #f9eee6; border-left: 3px solid var(--coral); }
 .notice-icon { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border: 1px solid #ce8c70; border-radius: 50%; color: #9d523e; font: 600 12px var(--mono); }
 .notice p { margin: 0; color: #6e4d40; font-size: 13px; line-height: 1.55; }
+.calibration-notice { margin-top: 18px; }
+.calibration-notice .button { margin-top: 12px; background: white; }
 .check-row { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 19px; color: #43534f; font-size: 14px; line-height: 1.5; cursor: pointer; }
 .check-row input { position: absolute; width: 20px; height: 20px; margin: 0; opacity: 0; }
 .check-box { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid #aebbb3; border-radius: 3px; background: white; }
 .check-row input:checked + .check-box { background: var(--green); border-color: var(--green); }
 .check-row input:checked + .check-box::after { content: '✓'; color: white; font-size: 14px; }
+.check-row-danger { color: #b91c1c; font-weight: 600; }
+.check-row-danger .check-box { border-color: #dc2626; }
+.check-row-danger input:checked + .check-box { background: #dc2626; border-color: #dc2626; }
 .check-row strong { color: var(--ink); }
 .setup-actions { display: flex; align-items: center; gap: 13px; margin-top: 25px; padding-top: 21px; border-top: 1px solid var(--line); }
 .ear-select-label { color: var(--muted); }
-select { min-height: 42px; padding: 0 29px 0 11px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface); color: var(--ink); }
+select, input[type="text"], input[type="number"] {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+input[type="text"]:focus, input[type="number"]:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgb(35 126 114 / 14%);
+}
 .button { min-height: 44px; display: inline-flex; justify-content: center; align-items: center; gap: 9px; padding: 0 17px; border: 1px solid transparent; border-radius: 3px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background .16s ease, border-color .16s ease, transform .16s ease; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button:disabled { opacity: .42; cursor: not-allowed; }
@@ -76,15 +96,150 @@ select { min-height: 42px; padding: 0 29px 0 11px; border: 1px solid var(--line)
 .right-dot { background: var(--green); }
 .result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 23px; padding-top: 20px; border-top: 1px solid var(--line); }
 .result-disclaimer { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-footer { width: min(100% - 40px, 760px); display: flex; justify-content: space-between; gap: 12px; margin: 0 auto; padding: 12px 0 27px; color: #87938c; }
-dialog#headphone-dialog { width: min(100% - 40px, 420px); padding: 28px 24px 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); text-align: center; box-shadow: 0 20px 60px rgb(20 43 42 / 22%); }
+footer.app-footer {
+  width: min(100% - 40px, 760px);
+  margin: 0 auto;
+  padding: 16px 0 32px;
+  color: #87938c;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.footer-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font: 500 10px var(--mono);
+}
+.footer-credits {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.footer-credits p {
+  margin: 0;
+}
+.footer-credits strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.credits-authors {
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.credits-academic {
+  font-size: 11px;
+}
+.credits-course {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--green);
+  margin-top: 2px;
+}
+.patient-form {
+  display: flex;
+  gap: 14px;
+  margin: 18px 0 8px;
+  padding-bottom: 4px;
+}
+.patient-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.patient-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--mono);
+}
+.patient-field-name {
+  flex: 3 1 200px;
+}
+.patient-field-age {
+  flex: 1 1 80px;
+  max-width: 120px;
+}
+dialog#headphone-dialog {
+  box-sizing: border-box;
+  width: min(calc(100% - 32px), 440px);
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 40px);
+  margin: auto;
+  padding: 28px 24px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  box-shadow: 0 20px 60px rgb(20 43 42 / 22%);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 dialog#headphone-dialog::backdrop { background: rgb(20 43 42 / 62%); backdrop-filter: blur(3px); }
 .headphone-dialog-icon { display: grid; width: 42px; height: 42px; margin: 0 auto 16px; place-items: center; border: 1px solid #ce8c70; border-radius: 50%; color: #9d523e; font: 600 20px var(--mono); }
 dialog#headphone-dialog h2 { margin-bottom: 10px; }
 .headphone-dialog-message { margin-bottom: 8px; font-size: 15px; font-weight: 600; line-height: 1.5; }
 .headphone-dialog-support { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
-#headphone-retry-button { margin-top: 20px; }
-#headphone-continue-button { width: 100%; margin-top: 10px; }
+.device-picker-box { box-sizing: border-box; width: 100%; max-width: 100%; margin: 16px 0 14px; padding: 12px; background: #f6f8f4; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.device-select-row { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 100%; box-sizing: border-box; }
+#output-select { flex: 1 1 0; min-width: 0; max-width: 100%; width: 0; min-height: 40px; padding: 0 28px 0 10px; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; box-sizing: border-box; }
+#confirm-device-btn { flex: 0 0 auto; white-space: nowrap; min-height: 40px; padding: 0 14px; box-sizing: border-box; }
+#headphone-retry-button { width: 100%; margin-top: 14px; box-sizing: border-box; }
+#headphone-continue-button { width: 100%; margin-top: 8px; box-sizing: border-box; }
+.toast-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: min(calc(100% - 32px), 480px);
+  padding: 11px 18px;
+  background: #142b2a;
+  color: #fffefa;
+  border: 1px solid #d56c50;
+  border-radius: 40px;
+  box-shadow: 0 12px 30px rgb(20 43 42 / 28%), 0 2px 6px rgb(0 0 0 / 12%);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  animation: toastIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.toast-banner.toast-closing {
+  animation: toastOut 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.toast-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  border-radius: 50%;
+}
+.toast-text {
+  flex: 1 1 auto;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.96); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  to { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.96); }
+}
 [hidden] { display: none !important; }
 @keyframes arrive { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 560px) {
@@ -97,8 +252,9 @@ dialog#headphone-dialog h2 { margin-bottom: 10px; }
   .test-actions .button-primary { flex-basis: 100%; }
   .result-actions .button { flex: 1 1 auto; }
   .result-actions .button-text { flex-basis: 100%; justify-content: flex-start; }
-  footer { width: min(100% - 28px, 760px); flex-wrap: wrap; align-items: center; padding-top: 12px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px)); font-size: clamp(7px, 2.2vw, 9px); }
-  footer span:last-child { margin-left: auto; text-align: right; }
+  .patient-form { flex-direction: column; gap: 10px; }
+  .patient-field-age { max-width: 100%; }
+  footer.app-footer { width: min(100% - 28px, 760px); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) {
   main { width: min(100% - 24px, 760px); }

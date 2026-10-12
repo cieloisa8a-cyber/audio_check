@@ -1,9 +1,9 @@
-const CACHE_NAME = "oido-shell-v7";
+const CACHE_NAME = "oido-shell-v25";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/static/app.css?v=responsive-chart-1",
-  "/static/app.js?v=responsive-chart-1",
+  "/static/app.css?v=pdf-fix-4",
+  "/static/app.js?v=pdf-fix-4",
   "/static/icon.svg",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",
