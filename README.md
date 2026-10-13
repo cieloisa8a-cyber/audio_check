@@ -82,8 +82,7 @@ audio_check/
 │           ├── AndroidBridge.java    # Interfaz JavaScript para puente nativo (audio y PDF)
 │           └── PdfFileProvider.java  # Proveedor seguro de archivos para compartir PDF
 ├── macos/                   # Scripts y LaunchAgent para despliegue local en macOS
-├── api/index.py             # Entrada FastAPI para Vercel
-├── vercel.json              # Rutas de publicación web/API
+├── pyproject.toml           # Punto de entrada FastAPI para Vercel
 ├── .github/workflows/       # Publicación automatizada del APK
 ├── requirements.txt         # Dependencias de Python
 └── README.md
@@ -93,10 +92,11 @@ audio_check/
 
 ## 🚀 Publicar en Vercel
 
-1. Importa `juanitowarrior28/audio_check` en Vercel y conserva la raíz del proyecto como **Root Directory**.
-2. Vercel instalará las dependencias de `requirements.txt` y desplegará `api/index.py` con el runtime Python.
-3. Asigna el dominio desde **Project → Settings → Domains**. Vercel genera una URL pública `https://<proyecto>.vercel.app`; un dominio propio requiere que su propietario configure el DNS. El proyecto no codifica `localhost` como URL de producción.
-4. Cada despliegue publica conjuntamente el frontend y `/api/report.pdf`; el cliente usa rutas relativas.
+1. Importa `juanitowarrior28/audio_check` en Vercel y conserva la raíz del proyecto como **Root Directory** (vacío o `./`).
+2. Selecciona el preset **FastAPI / Python**. Deja **Build Command** y **Output Directory** vacíos/automáticos para que Vercel lea `pyproject.toml` y `requirements.txt`.
+3. Vercel utiliza `backend.app.main:app` como punto de entrada ASGI; el frontend y sus assets se sirven desde la propia aplicación.
+4. Asigna el dominio desde **Project → Settings → Domains**. Vercel genera una URL pública `https://<proyecto>.vercel.app`; un dominio propio requiere que su propietario configure el DNS. El proyecto no codifica `localhost` como URL de producción.
+5. Cada despliegue publica conjuntamente el frontend y `/api/report.pdf`; el cliente usa rutas relativas.
 
 La app Android contiene el mismo frontend estático empaquetado y no requiere que la API esté disponible para ejecutar la prueba o generar PDFs nativos. La web pública sí requiere el endpoint de Vercel para generar el PDF.
 

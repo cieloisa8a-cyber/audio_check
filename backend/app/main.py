@@ -17,7 +17,6 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend"
 STATIC_DIR = FRONTEND_DIR / "static"
 
 app = FastAPI(title="Audio Check", docs_url=None, redoc_url=None)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @lru_cache(maxsize=1)
@@ -30,11 +29,6 @@ def calibration_profiles() -> tuple[CalibrationProfile, ...]:
     if len(keys) != len(profiles):
         raise ValueError("El catálogo contiene identificadores de perfil duplicados.")
     return profiles
-
-
-@app.get("/", include_in_schema=False)
-def index() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
 
 
 @app.get("/manifest.webmanifest", include_in_schema=False)
@@ -73,3 +67,6 @@ def report(request: ReportRequest) -> Response:
             "Content-Type": "application/pdf",
         },
     )
+
+
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
