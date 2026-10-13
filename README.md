@@ -92,11 +92,10 @@ audio_check/
 
 ## 🚀 Publicar en Vercel
 
-1. Importa `juanitowarrior28/audio_check` en Vercel y conserva la raíz del proyecto como **Root Directory** (vacío o `./`).
-2. Selecciona el preset **FastAPI / Python**. Deja **Build Command** y **Output Directory** vacíos/automáticos para que Vercel lea `pyproject.toml` y `requirements.txt`.
-3. Vercel utiliza `backend.app.main:app` como punto de entrada ASGI; el frontend y sus assets se sirven desde la propia aplicación.
-4. Asigna el dominio desde **Project → Settings → Domains**. Vercel genera una URL pública `https://<proyecto>.vercel.app`; un dominio propio requiere que su propietario configure el DNS. El proyecto no codifica `localhost` como URL de producción.
-5. Cada despliegue publica conjuntamente el frontend y `/api/report.pdf`; el cliente usa rutas relativas.
+1. Importa `cieloisa8a-cyber/audio_check` en Vercel y conserva la raíz del proyecto como **Root Directory** (vacío o `./`).
+2. Vercel detectará automáticamente `vercel.json` y desplegará `api/index.py` junto con los archivos estáticos de `frontend/`.
+3. Asigna el dominio desde **Project → Settings → Domains**. Vercel genera una URL pública `https://<proyecto>.vercel.app`.
+4. Cada despliegue publica conjuntamente el frontend y `/api/report.pdf`; el cliente usa rutas relativas.
 
 La app Android contiene el mismo frontend estático empaquetado y no requiere que la API esté disponible para ejecutar la prueba o generar PDFs nativos. La web pública sí requiere el endpoint de Vercel para generar el PDF.
 
