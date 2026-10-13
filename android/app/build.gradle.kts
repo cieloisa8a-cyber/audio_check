@@ -16,7 +16,7 @@ android {
         versionName = "1.0"
     }
 
-    sourceSets.getByName("main").assets.directories.add("../../frontend")
+    sourceSets.getByName("main").assets.srcDirs("src/main/assets", "../../frontend")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

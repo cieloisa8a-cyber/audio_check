@@ -1,9 +1,9 @@
-const CACHE_NAME = "oido-shell-v27";
+const CACHE_NAME = "oido-shell-v45";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
-  "/static/app.css?v=pdf-fix-6",
-  "/static/app.js?v=pdf-fix-6",
+  "/static/app.css?v=patient-gap-v1",
+  "/static/app.js?v=mobile-export-share-v5",
   "/static/icons/logo%20audiometria.jpg",
   "/static/icons/icon-192.png",
   "/static/icons/icon-512.png",

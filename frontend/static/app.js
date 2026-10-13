@@ -26,10 +26,14 @@ const elements = {
   pdfButton: document.querySelector("#pdf-button"),
   shareButton: document.querySelector("#share-button"),
   otherEarButton: document.querySelector("#other-ear-button"),
+  newSessionButton: document.querySelector("#new-session-button"),
   headphoneDialog: document.querySelector("#headphone-dialog"),
+  headphoneDialogTitle: document.querySelector("#headphone-dialog-title"),
+  headphoneDialogMessage: document.querySelector(".headphone-dialog-message"),
   headphoneDialogSupport: document.querySelector("#headphone-dialog-support"),
   headphoneRetryButton: document.querySelector("#headphone-retry-button"),
   headphoneContinueButton: document.querySelector("#headphone-continue-button"),
+  devicePickerArea: document.querySelector("#device-picker-area"),
   bypassHeadphones: document.querySelector("#bypass-headphones"),
   scanDevicesBtn: document.querySelector("#scan-devices-btn"),
   outputSelectWrap: document.querySelector("#output-select-wrap"),
@@ -50,6 +54,7 @@ let isPlaying = false;
 let headphonesDetected = false;
 let headphoneCheckRequest = 0;
 let headphoneWarningAcknowledged = false;
+let isQaMode = false;
 let activeOscillator;
 let playbackTimer;
 let playbackId = 0;
@@ -58,29 +63,180 @@ let availableOutputs = [];
 let sessionPatientName = "";
 let sessionPatientAge = null;
 
-function setHeadphonesDetected(detected) {
-  headphonesDetected = Boolean(detected);
-  if (headphonesDetected) {
-    if (elements.headphoneDialog.open) elements.headphoneDialog.close();
-  } else if (!headphoneWarningAcknowledged && !elements.headphoneDialog.open) {
-    elements.headphoneDialog.showModal();
-    if (isPlaying) {
-      playbackId += 1;
-      window.clearTimeout(playbackTimer);
-      activeOscillator?.stop();
-      activeOscillator = null;
-      isPlaying = false;
+let disconnectRedirectTimer = null;
+let isDisconnectingFromTest = false;
+
+function hideToast() {
+  window.clearTimeout(toastTimer);
+  const toast = document.querySelector("#toast-banner");
+  if (toast) {
+    toast.hidden = true;
+    toast.classList.remove("toast-closing");
+    if (toast.parentNode && toast.parentNode !== document.body) {
+      document.body.appendChild(toast);
     }
   }
+}
+
+function setHeadphonesDetected(detected) {
+  const isNowConnected = Boolean(detected);
+  headphonesDetected = isNowConnected;
+
+  // En Modo QA, ignorar desconexiones de hardware para no interrumpir la prueba del desarrollador
+  if (isQaMode && !isNowConnected) {
+    return;
+  }
+
+  // CASO A: Auriculares conectados o reconectados
+  if (isNowConnected) {
+    if (disconnectRedirectTimer) {
+      window.clearTimeout(disconnectRedirectTimer);
+      disconnectRedirectTimer = null;
+    }
+    const wasDisconnecting = isDisconnectingFromTest;
+    isDisconnectingFromTest = false;
+    hideToast();
+
+    if (elements.headphoneDialog?.open) {
+      try {
+        elements.headphoneDialog.close();
+      } catch {
+        elements.headphoneDialog.removeAttribute("open");
+      }
+    }
+
+    if (wasDisconnecting) {
+      // Si se reconectaron en plena desconexión (la prueba fue interrumpida),
+      // la prueba quedó invalidada: resetear estado y regresar a setup con checkboxes listos para confirmar
+      measurements.length = 0;
+      frequencyIndex = 0;
+      currentLevel = MIN_LEVEL;
+      [elements.wiredCheck, elements.volumeCheck, elements.silenceCheck, elements.volumeLockCheck].forEach((cb) => {
+        if (cb) cb.checked = false;
+      });
+      elements.testPanel.hidden = true;
+      elements.resultsPanel.hidden = true;
+      elements.setup.hidden = false;
+    }
+
+    headphoneWarningAcknowledged = false;
+    updateSetupState();
+    return;
+  }
+
+  // CASO B: Auriculares desconectados
+
+  // Si ya estamos procesando la transición programada desde la prueba activa, no reiniciar temporizadores
+  if (isDisconnectingFromTest) {
+    return;
+  }
+
+  const testActive = !elements.testPanel.hidden;
+
+  if (testActive) {
+    // -------------------------------------------------------------
+    // ETAPA DE LA PRUEBA COMO TAL (checkboxes ya completados y test en curso)
+    // -------------------------------------------------------------
+    isDisconnectingFromTest = true;
+
+    // 1. Detener audio activo inmediatamente
+    playbackId += 1;
+    window.clearTimeout(playbackTimer);
+    try { activeOscillator?.stop(); } catch { /* ya detenido */ }
+    activeOscillator = null;
+    isPlaying = false;
+
+    // Asegurar que el modal NO esté abierto en esta primera instancia
+    if (elements.headphoneDialog?.open) {
+      try { elements.headphoneDialog.close(); } catch { elements.headphoneDialog.removeAttribute("open"); }
+    }
+
+    // 2. Mostrar aviso: en app móvil sólo aviso nativo del sistema (sin banner para no duplicar)
+    if (window.AndroidApp?.notifyHeadphonesDisconnected) {
+      window.AndroidApp.notifyHeadphonesDisconnected();
+    } else {
+      showToast("Auriculares desconectados, la prueba se reiniciará", 2400);
+    }
+
+    // 3. Luego redirigir a los checkboxes, ocultar la barrita y mostrar el modal
+    window.clearTimeout(disconnectRedirectTimer);
+    disconnectRedirectTimer = window.setTimeout(() => {
+      disconnectRedirectTimer = null;
+      isDisconnectingFromTest = false;
+
+      // Ocultar por completo la barrita flotante negra de aviso antes de abrir el modal
+      hideToast();
+
+      // Reiniciar estado de prueba
+      measurements.length = 0;
+      frequencyIndex = 0;
+      currentLevel = MIN_LEVEL;
+      headphoneWarningAcknowledged = false;
+
+      // Desmarcar todos los checkboxes
+      [elements.wiredCheck, elements.volumeCheck, elements.silenceCheck, elements.volumeLockCheck].forEach((cb) => {
+        if (cb) cb.checked = false;
+      });
+
+      // Redirigir a la parte de los checkboxes
+      elements.testPanel.hidden = true;
+      elements.resultsPanel.hidden = true;
+      elements.setup.hidden = false;
+
+      // Abrir el modal limpio (sin la barrita flotante negra de fondo)
+      if (!headphonesDetected && elements.headphoneDialog && !elements.headphoneDialog.open) {
+        try {
+          elements.headphoneDialog.showModal();
+        } catch {
+          elements.headphoneDialog.setAttribute("open", "");
+        }
+      }
+
+      updateSetupState();
+    }, 1800);
+
+    return;
+  }
+
+  // -------------------------------------------------------------
+  // ETAPA DE LOS CHECKBOXES / SETUP
+  // -------------------------------------------------------------
+  // Mientras el modal se muestre, que NO se muestre la barrita flotante
+  hideToast();
+
+  // Desmarcar todos los checkboxes
+  [elements.wiredCheck, elements.volumeCheck, elements.silenceCheck, elements.volumeLockCheck].forEach((cb) => {
+    if (cb) cb.checked = false;
+  });
+  headphoneWarningAcknowledged = false;
+
+  // Si no está en la pantalla de resultados, abrir el modal de inmediato
+  if (elements.resultsPanel.hidden) {
+    if (elements.headphoneDialog && !elements.headphoneDialog.open) {
+      try {
+        elements.headphoneDialog.showModal();
+      } catch {
+        elements.headphoneDialog.setAttribute("open", "");
+      }
+    }
+  }
+
   updateSetupState();
 }
 
 window.setHeadphonesDetected = setHeadphonesDetected;
 window.checkHeadphones = checkHeadphones;
 elements.headphoneDialog.addEventListener("cancel", (event) => event.preventDefault());
-elements.headphoneRetryButton.addEventListener("click", checkHeadphones);
+elements.headphoneRetryButton.addEventListener("click", requestHeadphonePermissionAndCheck);
+
 let toastTimer;
+
 function showToast(message, durationMs = 6000) {
+  // Mientras el modal esté abierto, no mostrar barrita flotante
+  if (elements.headphoneDialog?.open) {
+    return;
+  }
+
   let toast = document.querySelector("#toast-banner");
   if (!toast) {
     toast = document.createElement("div");
@@ -88,13 +244,17 @@ function showToast(message, durationMs = 6000) {
     toast.className = "toast-banner";
     toast.setAttribute("role", "alert");
     toast.innerHTML = `<span class="toast-icon" aria-hidden="true">⚠️</span><span class="toast-text"></span>`;
-    document.body.appendChild(toast);
   }
   const textSpan = toast.querySelector(".toast-text");
-  if (textSpan) textSpan.textContent = message;
+  const cleanMessage = String(message || "").replace(/^(?:⚠️\s*)+/, "");
+  if (textSpan) textSpan.textContent = cleanMessage;
   toast.onclick = () => { toast.hidden = true; };
   toast.classList.remove("toast-closing");
   toast.hidden = false;
+
+  if (toast.parentNode !== document.body) {
+    document.body.appendChild(toast);
+  }
 
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => {
@@ -107,6 +267,7 @@ function showToast(message, durationMs = 6000) {
 }
 
 elements.headphoneContinueButton?.addEventListener("click", async () => {
+  isQaMode = true;
   headphoneWarningAcknowledged = true;
   elements.headphoneDialog.close();
   setHeadphonesDetected(true);
@@ -129,6 +290,7 @@ elements.bypassHeadphones?.addEventListener("click", async (e) => {
   e.preventDefault();
   const dialog = e.currentTarget.closest("dialog") || elements.headphoneDialog;
   dialog?.close();
+  isQaMode = true;
   headphoneWarningAcknowledged = true;
   setHeadphonesDetected(true);
   if (elements.patientName && !elements.patientName.value.trim()) {
@@ -147,113 +309,42 @@ elements.bypassHeadphones?.addEventListener("click", async (e) => {
   await startTest();
 });
 
-async function scanAndSelectAudioDevices() {
-  const mediaDevices = navigator.mediaDevices;
-  if (!mediaDevices) {
-    const confirmWired = window.confirm(
-      "Al abrir la app por IP de red local (HTTP 192.168.x.x), Chrome bloquea la detección de hardware por privacidad (requiere HTTPS o http://localhost).\n\n¿Confirmas que tienes conectados auriculares de cable a este equipo para continuar?"
-    );
-    if (confirmWired) {
-      selectedAudioDeviceId = "manual-pc-wired";
-      if (elements.selectedDeviceName) {
-        elements.selectedDeviceName.textContent = "Auriculares de cable (PC)";
-      }
-      headphoneWarningAcknowledged = true;
-      setHeadphonesDetected(true);
-      if (elements.headphoneDialog?.open) {
-        elements.headphoneDialog.close();
-      }
-    }
+async function requestHeadphonePermissionAndCheck() {
+  isQaMode = false;
+  if (window.AndroidApp) {
+    checkHeadphones();
     return;
   }
 
-  // 1. API nativa selectAudioOutput (Chrome/Edge 110+)
-  if (typeof mediaDevices.selectAudioOutput === "function") {
-    try {
-      const selected = await mediaDevices.selectAudioOutput();
-      if (selected) {
-        await handleDeviceChosen(selected);
-        return;
-      }
-    } catch (err) {
-      if (err.name === "AbortError" || err.name === "NotAllowedError") return;
-      console.warn("selectAudioOutput no disponible:", err);
-    }
+  const btn = elements.headphoneRetryButton;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Solicitando autorización...";
   }
 
-  // 2. Fallback: Desbloquear etiquetas (labels) mediante permiso temporal de audio
   try {
-    if (mediaDevices.getUserMedia) {
-      const stream = await mediaDevices.getUserMedia({ audio: true });
+    if (navigator.mediaDevices?.getUserMedia) {
+      // El navegador solicita autorización de audio para desbloquear los nombres de hardware de salida
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Apagar inmediatamente el micrófono: solo se necesitó para desbloquear las etiquetas de hardware
       stream.getTracks().forEach((track) => track.stop());
     }
   } catch (err) {
-    console.warn("No se pudo desbloquear nombres con micrófono:", err);
-  }
-
-  // 3. Enumerar dispositivos con nombres visibles
-  try {
-    const devices = await mediaDevices.enumerateDevices();
-    let outputs = devices.filter((d) => d.kind === "audiooutput");
-    if (outputs.length === 0) {
-      outputs = devices.filter((d) => d.kind === "audioinput");
+    console.warn("Permiso de audio no concedido:", err);
+    if (elements.headphoneDialogSupport) {
+      elements.headphoneDialogSupport.textContent =
+        "Por privacidad, el navegador solicita autorizar el «micrófono» para leer las salidas de audio. Puedes habilitarlo en el icono del candado 🔒 de tu navegador.";
     }
-
-    if (outputs.length === 0) {
-      window.alert("No se detectaron salidas de audio en el navegador.");
-      return;
+    if (btn) {
+      btn.textContent = "Reintentar autorización en el navegador";
     }
-
-    availableOutputs = outputs;
-    populateOutputSelect(outputs);
-  } catch (err) {
-    window.alert("Error al enumerar dispositivos: " + err.message);
-  }
-}
-
-function populateOutputSelect(outputs) {
-  const select = elements.outputSelect;
-  if (!select) return;
-  select.innerHTML = "";
-  outputs.forEach((device, index) => {
-    const opt = document.createElement("option");
-    opt.value = device.deviceId;
-    opt.textContent = device.label || `Salida de audio ${index + 1}`;
-    select.appendChild(opt);
-  });
-
-  if (elements.outputSelectWrap) {
-    elements.outputSelectWrap.hidden = false;
-  }
-  if (selectedAudioDeviceId) {
-    select.value = selectedAudioDeviceId;
-  }
-}
-
-async function handleDeviceChosen(device) {
-  selectedAudioDeviceId = device.deviceId;
-  const label = device.label || "Dispositivo seleccionado";
-
-  if (elements.selectedDeviceName) {
-    elements.selectedDeviceName.textContent = label;
-  }
-
-  if (/bluetooth|wireless|airpods?|buds/i.test(label)) {
-    const proceed = window.confirm(
-      "⚠️ Recomendamos usar auriculares de cable para mejores resultados clínicos. El Bluetooth introduce latencia y compresión. ¿Deseas continuar con Bluetooth de todas formas?"
-    );
-    if (!proceed) {
-      setHeadphonesDetected(false);
-      return;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
     }
   }
 
-  headphoneWarningAcknowledged = true;
-  setHeadphonesDetected(true);
-  if (elements.headphoneDialog?.open) {
-    elements.headphoneDialog.close();
-  }
-  await applyAudioSink();
+  await checkHeadphones();
 }
 
 async function applyAudioSink() {
@@ -266,22 +357,13 @@ async function applyAudioSink() {
   }
 }
 
-elements.scanDevicesBtn?.addEventListener("click", scanAndSelectAudioDevices);
-elements.confirmDeviceBtn?.addEventListener("click", () => {
-  if (!elements.outputSelect) return;
-  const chosen = availableOutputs.find((d) => d.deviceId === elements.outputSelect.value)
-    || { deviceId: elements.outputSelect.value, label: elements.outputSelect.options[elements.outputSelect.selectedIndex]?.text };
-  if (chosen) {
-    handleDeviceChosen(chosen);
-  }
-});
-
 async function checkHeadphones() {
-  const requestId = ++headphoneCheckRequest;
-  if (selectedAudioDeviceId) {
-    setHeadphonesDetected(true);
+  if (isQaMode) {
     return;
   }
+  const requestId = ++headphoneCheckRequest;
+
+  // 1. En la app Android, SIEMPRE consultar directamente el hardware nativo
   if (window.AndroidApp?.getAudioOutputType) {
     const outputType = window.AndroidApp.getAudioOutputType();
     if (outputType === "bluetooth") {
@@ -299,35 +381,67 @@ async function checkHeadphones() {
     return;
   }
 
-  if (window.AndroidApp) {
+  if (window.AndroidApp?.isHeadphonesConnected) {
     setHeadphonesDetected(window.AndroidApp.isHeadphonesConnected());
     return;
   }
 
+  // 2. En la versión Web (PC):
   const mediaDevices = navigator.mediaDevices;
   if (!mediaDevices?.enumerateDevices) {
-    elements.headphoneDialogSupport.innerHTML =
-      "Acceso por IP local (HTTP): Chrome desactiva la detección automática de hardware sin HTTPS. Si estás en esta PC, abre <strong>http://localhost:8000</strong> para escanear dispositivos, o confirma tus auriculares abajo.";
+    if (elements.headphoneDialogSupport) {
+      elements.headphoneDialogSupport.innerHTML =
+        "Acceso por IP local (HTTP): Chrome desactiva la detección de hardware sin HTTPS. Si estás en esta PC, abre <strong>http://localhost:8000</strong>.";
+    }
     setHeadphonesDetected(false);
     return;
   }
 
   try {
-    const outputs = await mediaDevices.enumerateDevices();
+    const devices = await mediaDevices.enumerateDevices();
     if (requestId !== headphoneCheckRequest) return;
-    const headphonesReported = outputs.some((device) => {
-      if (device.kind !== "audiooutput" || !device.label.trim()) return false;
+
+    const headphonesReported = devices.some((device) => {
+      if (!device.label.trim()) return false;
       if (/bluetooth|wireless|airpods?|buds/i.test(device.label)) return false;
       return /headphones?|headsets?|earphones?|auriculares|aud[ií]fonos/i.test(device.label);
     });
-    elements.headphoneDialogSupport.textContent = headphonesReported
-      ? ""
-      : "Conecta auriculares auxiliares y toca «Volver a comprobar». Si el aviso sigue, el navegador no está informando la salida de auriculares.";
+
+    const hasAnyLabels = devices.some((d) => d.label.trim().length > 0);
+
+    // Visibilidad del botón de autorización:
+    // Si la autorización ya está concedida (hasAnyLabels === true) o estamos en Android, el botón es inútil y se oculta.
+    // Solo se muestra si el usuario NO ha concedido aún el permiso en el navegador.
+    if (elements.headphoneRetryButton) {
+      if (window.AndroidApp) {
+        elements.headphoneRetryButton.hidden = true;
+      } else {
+        elements.headphoneRetryButton.hidden = hasAnyLabels;
+        if (!hasAnyLabels && !elements.headphoneRetryButton.textContent.includes("Reintentar")) {
+          elements.headphoneRetryButton.textContent = "Autoriza el uso de tus auriculares en el navegador";
+        }
+      }
+    }
+
+    if (elements.headphoneDialogSupport) {
+      if (headphonesReported) {
+        elements.headphoneDialogSupport.textContent = "";
+      } else if (!hasAnyLabels) {
+        elements.headphoneDialogSupport.textContent =
+          "Para detectar si tus audífonos están conectados, el navegador requiere autorizar el acceso de audio (se solicita como «micrófono» por privacidad).";
+      } else {
+        elements.headphoneDialogSupport.textContent =
+          "Autorización concedida. Conecta tus auriculares de cable y la prueba se activará automáticamente.";
+      }
+    }
+
     setHeadphonesDetected(headphonesReported);
   } catch {
     if (requestId !== headphoneCheckRequest) return;
-    elements.headphoneDialogSupport.textContent =
-      "El navegador no pudo comprobar la salida de audio. Conecta los auriculares y vuelve a intentarlo.";
+    if (elements.headphoneDialogSupport) {
+      elements.headphoneDialogSupport.textContent =
+        "El navegador no pudo comprobar la salida de audio. Conecta los auriculares y vuelve a intentarlo.";
+    }
     setHeadphonesDetected(false);
   }
 }
@@ -344,7 +458,7 @@ function updateSetupState() {
     elements.wiredCheck.checked
     && elements.volumeCheck.checked
     && elements.silenceCheck?.checked
-    && (!elements.volumeLockCheck || elements.volumeLockCheck.checked)
+    && (Boolean(window.AndroidApp) || !elements.volumeLockCheck || elements.volumeLockCheck.checked)
   );
   const ready = Boolean(
     AudioContextClass
@@ -535,7 +649,7 @@ function nextFrequency() {
 
   elements.testPanel.hidden = true;
   elements.resultsPanel.hidden = false;
-  updateOtherEarButton();
+  updateResultActionButtons();
   renderChart();
   elements.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -547,21 +661,29 @@ function bothEarsTested() {
   return ["left", "right"].every((ear) => measurements.some((item) => item.ear === ear));
 }
 
-function updateOtherEarButton() {
-  elements.otherEarButton.textContent = bothEarsTested() ? NEW_SESSION_LABEL : OTHER_EAR_LABEL;
+function updateResultActionButtons() {
+  const bothDone = bothEarsTested();
+  if (elements.otherEarButton) {
+    elements.otherEarButton.hidden = bothDone;
+    elements.otherEarButton.textContent = OTHER_EAR_LABEL;
+  }
+  if (elements.newSessionButton) {
+    elements.newSessionButton.hidden = false;
+    elements.newSessionButton.textContent = NEW_SESSION_LABEL;
+  }
 }
 
-function goToOtherEar() {
+async function goToOtherEar() {
   elements.earSelect.value = currentEar === "left" ? "right" : "left";
-  elements.resultsPanel.hidden = true;
-  elements.setup.hidden = false;
-  elements.setup.scrollIntoView({ behavior: "smooth", block: "start" });
-  updateSetupState();
+  await startTest();
+  elements.testPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Reinicia la sesión para un nuevo paciente. Se conserva el AudioContext ya
 // desbloqueado (iOS) y el estado de detección de auriculares.
 function resetSession() {
+  isQaMode = false;
+  headphoneWarningAcknowledged = false;
   playbackId += 1;
   window.clearTimeout(playbackTimer);
   try { activeOscillator?.stop(); } catch { /* ya detenido */ }
@@ -587,7 +709,7 @@ function resetSession() {
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
   elements.testStatus.textContent = "";
-  elements.otherEarButton.textContent = OTHER_EAR_LABEL;
+  updateResultActionButtons();
 
   elements.testPanel.hidden = true;
   elements.resultsPanel.hidden = true;
@@ -620,7 +742,8 @@ function renderChart() {
     top: 18 + pointRadius,
     bottom: height - 42 - pointRadius,
   };
-  // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice.
+  // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
+  // (250, 500, 1000, 2000, 3000, 4000, 6000, 8000 Hz).
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;
@@ -718,34 +841,34 @@ function downloadPdfBlob(blob, filename) {
     finalName += ".pdf";
   }
 
-  const pdfBlob = (blob instanceof Blob && blob.type === "application/pdf")
-    ? blob
-    : new Blob([blob], { type: "application/pdf" });
+  const pdfBlob = blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" });
 
-  const downloadUrl = URL.createObjectURL(pdfBlob);
-  const link = document.createElement("a");
-  link.style.display = "none";
-  link.setAttribute("href", downloadUrl);
-  link.setAttribute("download", finalName);
-  link.download = finalName;
-  document.body.appendChild(link);
-
-  try {
-    link.dispatchEvent(new MouseEvent("click", {
-      bubbles: true,
-      cancelable: true,
-      view: window,
-    }));
-  } catch {
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const dataUrl = reader.result;
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = finalName;
+    link.rel = "noopener";
+    document.body.appendChild(link);
     link.click();
-  }
-
-  // Dejar el Blob URL activo 60 segundos para que el gestor de descargas
-  // del navegador resuelva el nombre y la extensión sin revertir a UUID.
-  setTimeout(() => {
-    if (link.parentNode) link.parentNode.removeChild(link);
-    URL.revokeObjectURL(downloadUrl);
-  }, 60000);
+    setTimeout(() => {
+      if (link.parentNode) link.parentNode.removeChild(link);
+    }, 1500);
+  };
+  reader.onerror = () => {
+    const downloadUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = finalName;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (link.parentNode) link.parentNode.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    }, 60000);
+  };
+  reader.readAsDataURL(pdfBlob);
 }
 
 async function fetchPdfBlob() {
@@ -754,70 +877,97 @@ async function fetchPdfBlob() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(getReportPayload()),
   });
-  if (!response.ok) throw new Error("No se pudo crear el PDF en el servidor.");
+  if (!response.ok) throw new Error("No se pudo crear el PDF.");
   return await response.blob();
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function exportPdf() {
-  if (elements.pdfButton.disabled) return;
   elements.pdfButton.disabled = true;
   const originalText = elements.pdfButton.textContent;
-  elements.pdfButton.textContent = "Generando PDF...";
-
+  elements.pdfButton.textContent = "Exportando...";
   try {
-    if (window.AndroidApp) {
-      window.AndroidApp.exportPdf(JSON.stringify(getReportPayload()), false);
+    const filename = getReportFilename();
+
+    if (window.AndroidApp?.savePdfBase64) {
+      showToast("Descargando reporte PDF...", 3000);
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.savePdfBase64(base64, filename, false);
+      return;
+    }
+
+    if (window.AndroidApp?.exportPdf) {
+      showToast("Descargando reporte PDF...", 3000);
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.exportPdf(base64, filename);
       return;
     }
 
     const blob = await fetchPdfBlob();
-    downloadPdfBlob(blob, getReportFilename());
-    showToast("PDF descargado correctamente.");
+    downloadPdfBlob(blob, filename);
   } catch (error) {
-    console.error("Error al exportar PDF:", error);
-    const msg = error.message && error.message.includes("fetch")
-      ? "No se pudo conectar con el servidor local para generar el PDF. Verifica que esté activo."
-      : (error.message || "No se pudo generar el PDF.");
-    showToast("⚠️ " + msg, 5000);
-    if (elements.testStatus) elements.testStatus.textContent = msg;
+    if (elements.testStatus) elements.testStatus.textContent = error.message;
+    showToast(error.message || "Error al exportar PDF", 5000);
   } finally {
-    elements.pdfButton.disabled = false;
-    elements.pdfButton.textContent = originalText;
+    setTimeout(() => {
+      elements.pdfButton.disabled = false;
+      elements.pdfButton.textContent = originalText;
+    }, 1000);
   }
 }
 
 async function shareResults() {
-  if (elements.shareButton.disabled) return;
   elements.shareButton.disabled = true;
   const originalText = elements.shareButton.textContent;
   elements.shareButton.textContent = "Preparando...";
-
   try {
-    if (window.AndroidApp) {
-      window.AndroidApp.exportPdf(JSON.stringify(getReportPayload()), true);
+    const filename = getReportFilename();
+
+    if (window.AndroidApp?.savePdfBase64) {
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.savePdfBase64(base64, filename, true);
+      return;
+    }
+
+    if (window.AndroidApp?.sharePdf) {
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.sharePdf(base64, filename);
       return;
     }
 
     const blob = await fetchPdfBlob();
-    const filename = getReportFilename();
     const file = new File([blob], filename, { type: "application/pdf" });
 
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      if (!navigator.share || (navigator.canShare && !navigator.canShare({ files: [file] }))) {
+        throw new Error("Web Share no disponible.");
+      }
       await navigator.share({ files: [file], title: "Resultado Audiometría" });
-    } else {
+    } catch (shareErr) {
+      if (shareErr.name === "AbortError") return;
       downloadPdfBlob(blob, filename);
-      showToast("Descargando PDF (compartir no disponible en este dispositivo).");
     }
   } catch (error) {
-    if (error.name === "AbortError") return;
-    console.error("Error al compartir:", error);
-    const msg = error.message && error.message.includes("fetch")
-      ? "No se pudo conectar con el servidor local para compartir. Verifica que esté activo."
-      : (error.message || "No se pudo compartir el resultado.");
-    showToast("⚠️ " + msg, 5000);
+    if (error.name !== "AbortError") {
+      showToast(error.message || "No se pudo compartir el resultado.", 5000);
+    }
   } finally {
-    elements.shareButton.disabled = false;
-    elements.shareButton.textContent = originalText;
+    setTimeout(() => {
+      elements.shareButton.disabled = false;
+      elements.shareButton.textContent = originalText;
+    }, 1000);
   }
 }
 
@@ -846,12 +996,15 @@ elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
 elements.calibrateBtn?.addEventListener("click", playCalibrationTone);
-elements.otherEarButton.addEventListener("click", () => {
-  if (bothEarsTested()) {
-    resetSession();
-  } else {
-    goToOtherEar();
+elements.otherEarButton?.addEventListener("click", () => {
+  goToOtherEar();
+});
+elements.newSessionButton?.addEventListener("click", () => {
+  if (!bothEarsTested() && measurements.length > 0) {
+    const ok = window.confirm("¿Deseas iniciar una nueva sesión? Las mediciones actuales del oído evaluado se reiniciarán para un nuevo paciente.");
+    if (!ok) return;
   }
+  resetSession();
 });
 if ("ResizeObserver" in window) {
   const chartObserver = new ResizeObserver(() => {
@@ -870,23 +1023,39 @@ if ("serviceWorker" in navigator && !window.AndroidApp) {
 
 if (navigator.mediaDevices) {
   navigator.mediaDevices.ondevicechange = () => {
-    checkHeadphones();
-    if (!elements.testPanel.hidden) {
-      window.alert("Se detectó un cambio en el hardware de audio durante la prueba activa.");
-    }
+    if (!isQaMode) checkHeadphones();
   };
 }
 
 if (window.AndroidApp) {
   if (elements.headphoneContinueButton) elements.headphoneContinueButton.hidden = true;
-  elements.headphoneDialogSupport.textContent = "La aplicación comprobará automáticamente la conexión.";
+  if (elements.devicePickerArea) elements.devicePickerArea.hidden = true;
+  if (elements.headphoneRetryButton) elements.headphoneRetryButton.hidden = true;
+  if (elements.headphoneDialogTitle) elements.headphoneDialogTitle.textContent = "Conecta tus auriculares de cable";
+  if (elements.headphoneDialogMessage) elements.headphoneDialogMessage.textContent = "Conecta tus auriculares de cable para continuar con la prueba.";
+  if (elements.headphoneDialogSupport) elements.headphoneDialogSupport.textContent = "La aplicación detectará la conexión automáticamente al enchufarlos.";
+  const icon = document.querySelector(".headphone-dialog-icon");
+  if (icon) icon.textContent = "🎧";
+  const volumeLockRow = document.querySelector("#volume-lock-row");
+  if (volumeLockRow) volumeLockRow.style.display = "none";
   checkHeadphones();
 } else {
   checkHeadphones();
-  window.addEventListener("focus", checkHeadphones);
+  window.addEventListener("focus", () => {
+    if (!isQaMode) checkHeadphones();
+  });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) checkHeadphones();
+    if (!document.hidden && !isQaMode) checkHeadphones();
   });
 }
 
+// Comprobación periódica constante para detectar desconexión en cualquier momento
+// (incluso mientras el usuario escribe sus datos o interactúa con los checkboxes)
+window.setInterval(() => {
+  if (!document.hidden && !isQaMode) {
+    checkHeadphones();
+  }
+}, 1200);
+
 updateSetupState();
+updateResultActionButtons();

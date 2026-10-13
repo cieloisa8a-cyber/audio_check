@@ -11,7 +11,7 @@
   <link rel="shortcut icon" href="/static/icons/logo%20audiometria.jpg" type="image/jpeg">
   <link rel="icon" href="/static/icons/favicon.png" type="image/png" sizes="64x64">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-  <link rel="stylesheet" href="/static/app.css?v=pdf-fix-6">
+  <link rel="stylesheet" href="/static/app.css?v=patient-gap-v1">
   <title>Audio Check | Prueba auditiva</title>
 </head>
 
@@ -64,7 +64,7 @@
         <span>Confirmo que estoy en un ambiente completamente silencioso (Esto evita que el ruido de fondo enmascare las
           frecuencias graves).</span>
       </label>
-      <label class="check-row check-row-danger">
+      <label id="volume-lock-row" class="check-row check-row-danger">
         <input id="volume-lock-check" type="checkbox">
         <span class="check-box" aria-hidden="true"></span>
         <span>Entiendo que alterar el volumen físico durante la prueba invalidará los resultados.</span>
@@ -131,7 +131,8 @@
       <div class="result-actions">
         <button id="pdf-button" class="button button-primary" type="button">Exportar PDF</button>
         <button id="share-button" class="button button-quiet" type="button">Compartir</button>
-        <button id="other-ear-button" class="button button-text" type="button">Medir el otro oído</button>
+        <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
+        <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
       <p class="result-disclaimer">No es una audiometría clínica ni un diagnóstico. Los resultados se expresan en escala
         digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).</p>
@@ -155,32 +156,21 @@
     <span class="toast-text"></span>
   </div>
   <dialog id="headphone-dialog" aria-labelledby="headphone-dialog-title">
-    <div class="headphone-dialog-icon" aria-hidden="true">!</div>
-    <h2 id="headphone-dialog-title">Elige tu dispositivo de salida</h2>
-    <p class="headphone-dialog-message">Sin auriculares conectados, no tendrás la experiencia completa de la prueba.</p>
-    <p id="headphone-dialog-support" class="headphone-dialog-support"></p>
+    <div class="headphone-dialog-icon" aria-hidden="true">🎧</div>
+    <h2 id="headphone-dialog-title">Conecta tus auriculares de cable</h2>
+    <p class="headphone-dialog-message">Conecta tus auriculares de cable para continuar con la prueba.</p>
+    <p id="headphone-dialog-support" class="headphone-dialog-support">
+      Para detectar si están enchufados, el navegador requiere autorizar el acceso de audio (se solicita como «micrófono» por privacidad).
+    </p>
 
-    <div id="device-picker-area" class="device-picker-box">
-      <button id="scan-devices-btn" class="button button-quiet" type="button" style="width: 100%;">
-        🎧 Detectar / Seleccionar salida de dispositivo
-      </button>
-      <div id="output-select-wrap" hidden style="margin-top: 10px; text-align: left;">
-        <label for="output-select"
-          style="font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px;">Elige el dispositivo de tus
-          audífonos:</label>
-        <div class="device-select-row">
-          <select id="output-select"></select>
-          <button id="confirm-device-btn" class="button button-primary" type="button">Usar</button>
-        </div>
-      </div>
-    </div>
-
-    <button id="headphone-retry-button" class="button button-primary" type="button">Volver a comprobar</button>
+    <button id="headphone-retry-button" class="button button-primary" type="button">
+      Autoriza el uso de tus auriculares en el navegador
+    </button>
     <a href="#" id="bypass-headphones"
       style="font-size: 0.8rem; text-decoration: underline; color: #6b7280; cursor: pointer; display: block; text-align: center; margin-top: 10px;">Continuar
       sin auriculares (Modo de prueba QA)</a>
   </dialog>
-  <script src="/static/app.js?v=pdf-fix-6" defer></script>
+  <script src="/static/app.js?v=mobile-export-share-v5" defer></script>
 </body>
 
 </html>

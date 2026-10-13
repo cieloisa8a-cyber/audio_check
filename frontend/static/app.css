@@ -159,10 +159,10 @@ footer.app-footer {
   font-family: var(--mono);
 }
 .patient-field-name {
-  flex: 3 1 200px;
+  flex: 3 1 0%;
 }
 .patient-field-age {
-  flex: 1 1 80px;
+  flex: 1 1 0%;
   max-width: 120px;
 }
 dialog#headphone-dialog {
@@ -252,8 +252,9 @@ dialog#headphone-dialog h2 { margin-bottom: 10px; }
   .test-actions .button-primary { flex-basis: 100%; }
   .result-actions .button { flex: 1 1 auto; }
   .result-actions .button-text { flex-basis: 100%; justify-content: flex-start; }
-  .patient-form { flex-direction: column; gap: 10px; }
-  .patient-field-age { max-width: 100%; }
+  .patient-form { flex-direction: column; gap: 12px; margin: 16px 0 6px; }
+  .patient-field-name,
+  .patient-field-age { flex: none; width: 100%; max-width: 100%; }
   footer.app-footer { width: min(100% - 28px, 760px); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (max-width: 360px) {
