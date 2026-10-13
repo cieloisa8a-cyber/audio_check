@@ -14,7 +14,7 @@
 
 **Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (250 Hz – 8000 Hz).
 
-La aplicación permite evaluar ambos oídos de forma independiente, trazando un audiograma interactivo en escala digital relativa (**dBFS**) y exportando un reporte clínico referencial en formato **PDF**, con los datos del paciente (nombre y edad).
+La aplicación permite evaluar ambos oídos de forma independiente o consecutiva, trazando un audiograma interactivo en escala digital relativa (**dBFS**) y exportando un reporte clínico referencial en formato **PDF**, con los datos del paciente (nombre y edad).
 
 > ⚠️ **Aviso importante / Disclaimer:**  
 > Esta herramienta **no sustituye una audiometría clínica profesional** ni genera lecturas en dB HL o dB SPL. Al carecer de calibración con sonómetro y acoplador acústico (oído artificial), los resultados se expresan en escala digital relativa (dBFS) y su propósito es estrictamente académico y orientativo.
@@ -23,17 +23,26 @@ La aplicación permite evaluar ambos oídos de forma independiente, trazando un 
 
 ## ✨ Características principales
 
-- **Evaluación binaural independiente:** Permite medir el oído izquierdo y derecho por separado, o ambos en una misma sesión.
-- **Rango de 8 frecuencias:** Incluye octavas estándar e inter-octavas clínicas:
-  $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
-- **Audiograma dinámico:** Trazado en tiempo real en canvas HTML5 optimizado para altas densidades de píxeles (Retina / pantallas móviles).
-- **Exportación en PDF vectorial:**
-  - Generación en el backend con **ReportLab** para la versión web.
-  - Generación nativa en el dispositivo con **Android PdfDocument** para la versión APK.
-  - Incluye nombre, edad, curvas por color (rojo: oído izquierdo, verde azulado: oído derecho), cuadrícula de niveles (−60 a −20 dBFS) y advertencias clínicas.
-- **Doble soporte multiplataforma:**
-  - **PWA (Progressive Web App):** Instalable en escritorio y móviles con Service Worker para operación en local.
-  - **App Nativa Android:** Detección de audífonos físicos (Jack 3.5 mm / USB-C), bloqueo de controles de volumen para preservar la consistencia de la prueba y soporte nativo de compartir vía `Intent.ACTION_SEND`.
+- **Evaluación binaural independiente y bilateral fluida:**
+  - Permite medir el oído izquierdo y derecho por separado o ambos en una misma sesión.
+  - Al culminar un oído, la opción **"Medir el otro oído"** permite saltar directamente a la prueba del oído contralateral sin repetir el formulario de verificación inicial.
+  - Opción de **"Nueva sesión"** para reiniciar limpiamente el proceso y datos del paciente.
+- **Rango de 8 frecuencias normalizadas:**
+  - Frecuencias tonales seleccionadas para tamizaje psicoacústico:
+    $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
+  - Se omiten frecuencias redundantes (125, 750 y 1500 Hz) para una prueba más ágil y precisa.
+- **Audiograma dinámico:**
+  - Trazado en tiempo real en canvas HTML5 con curvas identificadas por colores normativos (rojo: oído izquierdo, verde azulado: oído derecho) y compensación para pantallas Retina y móviles.
+- **Exportación en PDF vectorial y Compartir nativo:**
+  - Generación de reportes vectoriales en el backend con **ReportLab**.
+  - En la aplicación móvil, soporte nativo de **guardado en la carpeta Descargas** con notificación en la barra de estado del sistema.
+  - Integración nativa con el menú de compartir de Android (`Intent.ACTION_SEND` mediante `FileProvider`) para enviar el PDF de forma directa a WhatsApp, Telegram, Gmail o Google Drive.
+- **Protección de rigor médico y hardware:**
+  - Detección en tiempo real de audífonos con cable (Jack 3.5 mm / USB-C).
+  - Reinicio automático de seguridad en caso de desconexión durante la prueba con notificación clara del sistema.
+  - **Bloqueo físico de controles de volumen** en la app móvil para evitar alterar la consistencia de los umbrales durante la sesión.
+- **Interfaz adaptativa:**
+  - Formulario de paciente con campos de Nombre y Edad compactos y optimizados para dispositivos móviles.
 
 ---
 
@@ -41,10 +50,10 @@ La aplicación permite evaluar ambos oídos de forma independiente, trazando un 
 
 | Capa | Tecnologías |
 | :--- | :--- |
-| **Frontend** | HTML5 semántico, CSS3 Vanilla (variables, glassmorphism), JavaScript ES6+ moderno |
+| **Frontend** | HTML5 semántico, CSS3 Vanilla (variables, diseño responsivo adaptativo), JavaScript ES6+ moderno |
 | **Síntesis de Audio** | Web Audio API (`AudioContext`, `OscillatorNode`, `GainNode`, `StereoPannerNode`) |
-| **Backend Web** | Python 3.9+, FastAPI, Uvicorn, Pydantic, ReportLab |
-| **Móvil (Android)** | Java, Android SDK (minSdk 29, targetSdk 37), WebViewBridge, MediaStore API |
+| **Backend** | Python 3.9+, FastAPI, Uvicorn, Pydantic, ReportLab |
+| **Móvil (Android)** | Android SDK (minSdk 29, targetSdk 37), Jetpack Compose / WebViewBridge, FileProvider, MediaStore API |
 | **Caché / Offline** | Service Workers, Web App Manifest |
 
 ---
@@ -61,14 +70,16 @@ audio_check/
 ├── frontend/
 │   ├── index.html           # Interfaz de usuario y flujo de prueba (3 etapas)
 │   └── static/
-│       ├── app.css          # Estilos y diseño responsivo
-│       ├── app.js           # Lógica psicoacústica, síntesis y exportación
-│       ├── sw.js            # Service Worker para capacidades PWA / offline
+│       ├── app.css          # Estilos y diseño responsivo adaptativo
+│       ├── app.js           # Lógica psicoacústica, síntesis, comunicación puente y exportación
+│       ├── sw.js            # Service Worker para capacidades PWA y caché
 │       └── manifest.webmanifest
-├── android/                 # Proyecto Android Studio (app nativa)
+├── android/                 # Módulo Android del proyecto
 │   └── app/
 │       └── src/main/java/com/audiocheck/app/
-│           └── MainActivity.java # Puente nativo, detección de hardware y PDF local
+│           ├── MainActivity.java     # Actividad principal
+│           ├── AndroidBridge.java    # Interfaz JavaScript para puente nativo (audio y PDF)
+│           └── PdfFileProvider.java  # Proveedor seguro de archivos para compartir PDF
 ├── macos/                   # Scripts y LaunchAgent para despliegue local en macOS
 ├── requirements.txt         # Dependencias de Python
 └── README.md
@@ -87,7 +98,7 @@ audio_check/
 Clona el repositorio y sitúate en la raíz del proyecto:
 
 ```bash
-git clone https://github.com/tu-usuario/audio_check.git
+git clone https://github.com/juanitowarrior28/audio_check.git
 cd audio_check
 ```
 
@@ -113,29 +124,35 @@ pip install -r requirements.txt
 
 ### 3. Iniciar el servidor
 
-Ejecuta el servidor de desarrollo con Uvicorn:
+Para uso local en el navegador:
 
 ```bash
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8765 --reload
+uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 Abre tu navegador en:
-👉 **[http://127.0.0.1:8765](http://127.0.0.1:8765)**
+👉 **[http://127.0.0.1:8000](http://127.0.0.1:8000)**
+
+Para permitir conexión desde la aplicación móvil en la misma red Wi-Fi:
+
+```bash
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
 ---
 
-## 📱 Compilación de la aplicación Android
+## 📱 Aplicación Android
 
-La carpeta `android/` contiene el proyecto completo para Android Studio:
+La aplicación móvil conecta el frontend optimizado con capacidades nativas del sistema operativo:
 
-1. Abre Android Studio y selecciona **Open**, eligiendo la carpeta `android/`.
-2. Conecta tu dispositivo Android (Android 10 / API 29 en adelante) con la depuración USB activa.
-3. Presiona **Run 'app'** o genera el APK desde el menú:  
-   **Build > Build Bundle(s) / APK(s) > Build APK(s)**.
-4. El archivo generado estará en:  
-   `android/app/build/outputs/apk/debug/app-debug.apk`.
-
-*Nota: La versión de Android ejecuta el frontend de manera autónoma sin requerir una conexión activa a internet ni al servidor Python.*
+1. Abre el proyecto en **Android Studio**.
+2. Conecta tu dispositivo Android con la depuración USB activa.
+3. Presiona **Run 'app'** (▶ o `Shift + F10`) para compilar e instalar en el dispositivo.
+4. Funcionalidades integradas:
+   - Detección automática del estado de conexión de auriculares alámbricos.
+   - Bloqueo de botones de volumen físico con advertencia médica en pantalla.
+   - Guardado directo de reportes en `Descargas/Audio Check` con notificación del sistema.
+   - Menú de compartir nativo para WhatsApp, Telegram y otras aplicaciones.
 
 ---
 
@@ -151,7 +168,8 @@ La carpeta `android/` contiene el proyecto completo para Android Studio:
    - Indica si lo percibiste claramente o no para avanzar al siguiente escalón de nivel.
 4. **Resultados y entrega:**
    - Visualiza el audiograma resultante.
-   - Pulsa **Exportar PDF** para descargar el archivo (`Audiometria_Nombre_Paciente.pdf`) o **Compartir** para enviarlo directamente por aplicaciones de mensajería o correo.
+   - Pulsa **Medir el otro oído** para evaluar el oído restante de forma inmediata sin repetir los pasos de preparación.
+   - Pulsa **Exportar PDF** para descargar el reporte (`Audiometria_Nombre_Paciente.pdf`) o **Compartir** para enviarlo por mensajería o correo.
 
 ---
 
