@@ -20,10 +20,7 @@ button:focus-visible, select:focus-visible, input:focus-visible + .check-box { o
 .eyebrow, .step-count, .ear-select-label, footer { font: 500 10px var(--mono); letter-spacing: 0; }
 main { width: min(100% - 40px, 760px); margin: 0 auto; flex: 1 0 auto; }
 .intro { padding: 36px 0 35px; animation: arrive .55s ease-out both; }
-.intro-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 13px; }
-.brand-mark { display: block; width: 40px; height: 40px; border-radius: 9px; object-fit: cover; }
 .eyebrow { margin: 0 0 13px; color: var(--green); }
-.intro-brand .eyebrow { margin: 0; }
 h1, h2, p { margin-top: 0; }
 h1 { margin-bottom: 15px; font: 700 clamp(42px, 8vw, 66px)/.99 var(--display); letter-spacing: 0; }
 h1 em { color: var(--coral); font-family: Georgia, serif; font-weight: 400; }
@@ -37,12 +34,9 @@ h2 { margin: 0; font: 650 23px var(--display); letter-spacing: 0; }
 .notice { display: flex; align-items: flex-start; gap: 12px; padding: 14px; background: #f9eee6; border-left: 3px solid var(--coral); }
 .notice-icon { display: grid; width: 20px; height: 20px; flex: 0 0 auto; place-items: center; border: 1px solid #ce8c70; border-radius: 50%; color: #9d523e; font: 600 12px var(--mono); }
 .notice p { margin: 0; color: #6e4d40; font-size: 13px; line-height: 1.55; }
-.calibration-profile { display: grid; gap: 8px; margin-top: 19px; }
-.calibration-profile label { color: var(--ink); font-size: 13px; font-weight: 600; }
-.calibration-profile select { width: 100%; }
-.calibration-profile .support-message { min-height: 0; margin: 0; }
+.calibration-notice { margin-top: 18px; }
+.calibration-notice .button { margin-top: 12px; background: white; }
 .check-row { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 19px; color: #43534f; font-size: 14px; line-height: 1.5; cursor: pointer; }
-.check-row[hidden] { display: none; }
 .check-row input { position: absolute; width: 20px; height: 20px; margin: 0; opacity: 0; }
 .check-box { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid #aebbb3; border-radius: 3px; background: white; }
 .check-row input:checked + .check-box { background: var(--green); border-color: var(--green); }

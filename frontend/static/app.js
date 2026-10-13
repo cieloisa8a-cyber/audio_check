@@ -39,14 +39,7 @@ const elements = {
   outputSelectWrap: document.querySelector("#output-select-wrap"),
   outputSelect: document.querySelector("#output-select"),
   confirmDeviceBtn: document.querySelector("#confirm-device-btn"),
-  calibrationProfile: document.querySelector("#calibration-profile"),
-  calibrationProfileLabel: document.querySelector("#calibration-profile-label"),
-  calibrationProfileNote: document.querySelector("#calibration-profile-note"),
-  webUncalibratedOption: document.querySelector("#web-uncalibrated-option"),
-  allowUncalibratedWeb: document.querySelector("#allow-uncalibrated-web"),
-  chartCaption: document.querySelector("#chart-caption"),
-  resultDisclaimer: document.querySelector("#result-disclaimer"),
-  testFinePrint: document.querySelector("#test-fine-print"),
+  calibrateBtn: document.getElementById("calibrate-btn"),
   patientName: document.querySelector("#patient-name"),
   patientAge: document.querySelector("#patient-age"),
 };
@@ -69,102 +62,9 @@ let selectedAudioDeviceId = "";
 let availableOutputs = [];
 let sessionPatientName = "";
 let sessionPatientAge = null;
-let calibrationProfiles = [];
-let sessionCalibrationProfile = null;
-let sessionUsesUncalibratedWeb = false;
-let calibrationProfileLoadError = false;
 
 let disconnectRedirectTimer = null;
 let isDisconnectingFromTest = false;
-
-function getCalibrationPlatform() {
-  if (window.AndroidApp) return "android";
-  const userAgent = navigator.userAgent || "";
-  if (/Android/i.test(userAgent)) return "android";
-  if (/iPhone|iPad|iPod/i.test(userAgent)
-      || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
-    return "ios";
-  }
-  return "web";
-}
-
-function validCalibrationProfile(profile) {
-  const frequencies = new Set(FREQUENCIES.map(String));
-  const references = profile?.db_hl_at_reference_dbfs;
-  return Boolean(
-    profile
-    && typeof profile.id === "string" && profile.id.trim() && profile.id.length <= 100
-    && typeof profile.name === "string" && profile.name.trim() && profile.name.length <= 100
-    && typeof profile.platform === "string" && ["web", "ios", "android"].includes(profile.platform)
-    && typeof profile.output_chain === "string" && profile.output_chain.trim() && profile.output_chain.length <= 120
-    && profile.reference_dbfs === -20
-    && references && typeof references === "object" && !Array.isArray(references)
-    && Object.keys(references).length === frequencies.size
-    && Object.keys(references).every((frequency) => frequencies.has(frequency)
-      && typeof references[frequency] === "number"
-      && Number.isFinite(references[frequency])
-      && references[frequency] >= 30
-      && references[frequency] <= 120)
-  );
-}
-
-async function loadCalibrationProfiles() {
-  try {
-    const response = await fetch("/static/calibration-profiles.json", { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const config = await response.json();
-    if (config.version !== 1 || !Array.isArray(config.profiles)
-        || !config.profiles.every(validCalibrationProfile)
-        || new Set(config.profiles.map((profile) => `${profile.platform}:${profile.id}`)).size !== config.profiles.length) {
-      throw new Error("Formato de perfiles acústicos inválido.");
-    }
-
-    const platform = getCalibrationPlatform();
-    calibrationProfiles = config.profiles.filter((profile) => profile.platform === platform);
-    elements.calibrationProfile.replaceChildren(new Option(
-      calibrationProfiles.length ? "Selecciona la salida calibrada…" : `No hay perfiles dB HL validados para ${platform}.`,
-      "",
-    ));
-    for (const profile of calibrationProfiles) {
-      elements.calibrationProfile.add(new Option(`${profile.name} · ${profile.output_chain}`, profile.id));
-    }
-    calibrationProfileLoadError = false;
-    updateCalibrationProfileState();
-    updateSetupState();
-  } catch (error) {
-    calibrationProfileLoadError = true;
-    calibrationProfiles = [];
-    elements.calibrationProfile.replaceChildren(new Option("Perfiles dB HL no disponibles", ""));
-    elements.calibrationProfileNote.textContent =
-      "No se pudo cargar el catálogo validado; la medición está bloqueada para evitar reportar valores no calibrados.";
-    console.error("No se pudieron cargar los perfiles acústicos:", error);
-    updateCalibrationProfileState();
-    updateSetupState();
-  }
-}
-
-function selectedCalibrationProfile() {
-  return calibrationProfiles.find((profile) => profile.id === elements.calibrationProfile.value) || null;
-}
-
-function updateCalibrationProfileState() {
-  const profile = selectedCalibrationProfile();
-  elements.calibrationProfileNote.textContent = profile
-    ? `Perfil ${profile.platform}: ${profile.output_chain}. No cambies el volumen ni la salida durante la sesión.`
-    : getCalibrationPlatform() === "web" && elements.allowUncalibratedWeb.checked
-      ? "Modo exploratorio activado: se mostrarán niveles digitales dBFS, no dB HL. No representa una medición clínica."
-    : calibrationProfileLoadError
-      ? getCalibrationPlatform() === "web"
-        ? "No se pudo cargar el catálogo validado. Puedes continuar en web solo en modo exploratorio dBFS."
-        : "No se pudo cargar el catálogo validado; la medición está bloqueada para evitar reportar valores no calibrados."
-      : getCalibrationPlatform() === "web"
-        ? "Se requiere un perfil medido para resultados dB HL. En web puedes omitirlo y continuar en modo exploratorio dBFS."
-        : "Se requiere un perfil acústico medido y validado para esta plataforma, dispositivo, salida y volumen. Sin perfil no se inicia la prueba.";
-}
-
-function dbHlFromDbfs(levelDbfs, frequency, profile) {
-  return levelDbfs - profile.reference_dbfs + profile.db_hl_at_reference_dbfs[frequency];
-}
 
 function hideToast() {
   window.clearTimeout(toastTimer);
@@ -560,15 +460,9 @@ function updateSetupState() {
     && elements.silenceCheck?.checked
     && (Boolean(window.AndroidApp) || !elements.volumeLockCheck || elements.volumeLockCheck.checked)
   );
-  const profileSelected = Boolean(sessionCalibrationProfile || selectedCalibrationProfile());
-  const uncalibratedWebSelected = getCalibrationPlatform() === "web"
-    && !sessionCalibrationProfile
-    && !selectedCalibrationProfile()
-    && elements.allowUncalibratedWeb.checked;
   const ready = Boolean(
     AudioContextClass
     && patientValid
-    && (profileSelected || uncalibratedWebSelected)
     && allChecksConfirmed
     && (headphonesDetected || canContinueAfterWarning)
   );
@@ -581,10 +475,6 @@ function updateSetupState() {
     elements.audioSupport.textContent = "Conecta auriculares auxiliares para habilitar la prueba.";
   } else if (!AudioContextClass) {
     elements.audioSupport.textContent = "Este navegador no permite generar tonos de audio.";
-  } else if (!profileSelected && !uncalibratedWebSelected) {
-    elements.audioSupport.textContent = calibrationProfileLoadError
-      ? "No se pudo cargar un perfil acústico validado. La prueba está bloqueada."
-      : `Selecciona un perfil acústico dB HL validado para ${getCalibrationPlatform()}.`;
   } else if (!allChecksConfirmed) {
     elements.audioSupport.textContent = "Confirma las condiciones obligatorias para habilitar la prueba.";
   } else {
@@ -593,23 +483,9 @@ function updateSetupState() {
 }
 
 async function startTest() {
-  const calibrationProfile = sessionCalibrationProfile || selectedCalibrationProfile();
-  const useUncalibratedWeb = !calibrationProfile
-    && getCalibrationPlatform() === "web"
-    && elements.allowUncalibratedWeb.checked;
-  if ((!calibrationProfile && !useUncalibratedWeb)
-      || (calibrationProfile && calibrationProfile.platform !== getCalibrationPlatform())) {
-    updateSetupState();
-    return;
-  }
-
   audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
   await audioContext.resume();
   await applyAudioSink();
-  sessionCalibrationProfile = calibrationProfile;
-  sessionUsesUncalibratedWeb = useUncalibratedWeb;
-  elements.calibrationProfile.disabled = true;
-  elements.allowUncalibratedWeb.disabled = true;
   if (elements.patientName?.value?.trim()) {
     sessionPatientName = elements.patientName.value.trim();
   }
@@ -632,15 +508,7 @@ function renderCurrentFrequency() {
   elements.testTitle.textContent = currentEar === "left" ? "Oído izquierdo" : "Oído derecho";
   elements.frequencyLabel.textContent = String(frequency);
   elements.frequencyProgress.innerHTML = `${frequencyIndex + 1} <span>/ ${FREQUENCIES.length}</span>`;
-  if (sessionUsesUncalibratedWeb) {
-    elements.levelLabel.textContent = `Nivel digital: ${currentLevel} dBFS · sin calibrar`;
-  } else {
-    const levelDbHl = dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile);
-    elements.levelLabel.textContent = `Estímulo: ${levelDbHl} dB HL`;
-  }
-  elements.testFinePrint.textContent = sessionUsesUncalibratedWeb
-    ? "Sin calibración: el nivel digital depende del dispositivo y no equivale a dB HL ni a un umbral clínico."
-    : "El umbral se presenta en dB HL únicamente con el perfil acústico validado seleccionado.";
+  elements.levelLabel.textContent = `Nivel relativo: ${currentLevel} dBFS`;
   elements.testStatus.textContent = "Reproduce el tono antes de responder.";
   elements.playButton.disabled = false;
   elements.heardButton.disabled = true;
@@ -661,45 +529,56 @@ async function playTone() {
     await applyAudioSink();
 
     const currentPlaybackId = ++playbackId;
-    elements.testStatus.textContent = "Tono en reproducción…";
-    const oscillator = audioContext.createOscillator();
-    activeOscillator = oscillator;
-    const envelope = audioContext.createGain();
-    const startAt = audioContext.currentTime + 0.01;
-    const amplitude = 10 ** (currentLevel / 20);
+    const delayMs = 1500 + Math.random() * 2500;
 
-    oscillator.type = "sine";
-    oscillator.frequency.value = FREQUENCIES[frequencyIndex];
-    envelope.gain.setValueAtTime(0, startAt);
-    envelope.gain.linearRampToValueAtTime(amplitude, startAt + 0.04);
-    envelope.gain.setValueAtTime(amplitude, startAt + 0.88);
-    envelope.gain.linearRampToValueAtTime(0, startAt + 1);
-
-    const panValue = currentEar === "left" ? -1 : 1;
-    let finalNode = envelope;
-    if (typeof audioContext.createStereoPanner === "function") {
-      const panner = audioContext.createStereoPanner();
-      panner.pan.setValueAtTime(panValue, startAt);
-      envelope.connect(panner);
-      finalNode = panner;
-    }
-    oscillator.connect(envelope);
-    finalNode.connect(audioContext.destination);
-    oscillator.start(startAt);
-    oscillator.stop(startAt + 1.01);
-
-    oscillator.addEventListener("ended", () => {
-      if (activeOscillator === oscillator) activeOscillator = null;
-    }, { once: true });
     playbackTimer = window.setTimeout(() => {
       if (currentPlaybackId !== playbackId) return;
-      isPlaying = false;
-      activeOscillator = null;
-      elements.heardButton.disabled = false;
-      elements.notHeardButton.disabled = false;
-      elements.playButton.disabled = false;
-      elements.testStatus.textContent = "¿Percibiste el tono con claridad?";
-    }, 1050);
+      try {
+        elements.testStatus.textContent = "Tono en reproducción…";
+        const oscillator = audioContext.createOscillator();
+        activeOscillator = oscillator;
+        const envelope = audioContext.createGain();
+        const startAt = audioContext.currentTime;
+        const amplitude = 10 ** (currentLevel / 20);
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = FREQUENCIES[frequencyIndex];
+        envelope.gain.setValueAtTime(0, startAt);
+        envelope.gain.linearRampToValueAtTime(amplitude, startAt + 0.04);
+        envelope.gain.setValueAtTime(amplitude, startAt + 0.88);
+        envelope.gain.linearRampToValueAtTime(0, startAt + 1);
+
+        const panValue = currentEar === "left" ? -1 : 1;
+        let finalNode = envelope;
+        if (typeof audioContext.createStereoPanner === "function") {
+          const panner = audioContext.createStereoPanner();
+          panner.pan.setValueAtTime(panValue, startAt);
+          envelope.connect(panner);
+          finalNode = panner;
+        }
+        oscillator.connect(envelope);
+        finalNode.connect(audioContext.destination);
+        oscillator.start(startAt);
+        oscillator.stop(startAt + 1.01);
+
+        oscillator.addEventListener("ended", () => {
+          if (activeOscillator === oscillator) activeOscillator = null;
+        }, { once: true });
+        playbackTimer = window.setTimeout(() => {
+          if (currentPlaybackId !== playbackId) return;
+          isPlaying = false;
+          activeOscillator = null;
+          elements.heardButton.disabled = false;
+          elements.notHeardButton.disabled = false;
+          elements.playButton.disabled = false;
+          elements.testStatus.textContent = "¿Percibiste el tono con claridad?";
+        }, 1050);
+      } catch {
+        isPlaying = false;
+        elements.playButton.disabled = false;
+        elements.testStatus.textContent = "No se pudo iniciar el audio. Toca Reproducir e inténtalo de nuevo.";
+      }
+    }, delayMs);
   } catch {
     isPlaying = false;
     elements.playButton.disabled = false;
@@ -707,18 +586,44 @@ async function playTone() {
   }
 }
 
+async function playCalibrationTone() {
+  if (!elements.calibrateBtn || elements.calibrateBtn.disabled) return;
+  const originalText = elements.calibrateBtn.textContent;
+  elements.calibrateBtn.disabled = true;
+  elements.calibrateBtn.textContent = "Reproduciendo...";
+
+  try {
+    audioContext ||= new AudioContextClass();
+    await audioContext.resume();
+
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    const startAt = audioContext.currentTime;
+    const amplitude = 10 ** (-20 / 20);
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 1000;
+    gainNode.gain.setValueAtTime(amplitude, startAt);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(startAt + 3);
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  } catch (error) {
+    console.error("Error al reproducir el tono de calibración:", error);
+  } finally {
+    elements.calibrateBtn.disabled = false;
+    elements.calibrateBtn.textContent = originalText;
+  }
+}
+
 function recordResponse(heard) {
   if (isPlaying) return;
   if (heard) {
-    const frequency = FREQUENCIES[frequencyIndex];
-    measurements.push({
-      ear: currentEar,
-      frequency_hz: frequency,
-      level_dbfs: currentLevel,
-      level_dbhl: sessionUsesUncalibratedWeb
-        ? null
-        : dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile),
-    });
+    measurements.push({ ear: currentEar, frequency_hz: FREQUENCIES[frequencyIndex], level_dbfs: currentLevel });
     nextFrequency();
     return;
   }
@@ -730,12 +635,7 @@ function recordResponse(heard) {
     return;
   }
 
-  measurements.push({
-    ear: currentEar,
-    frequency_hz: FREQUENCIES[frequencyIndex],
-    level_dbfs: null,
-    level_dbhl: null,
-  });
+  measurements.push({ ear: currentEar, frequency_hz: FREQUENCIES[frequencyIndex], level_dbfs: null });
   nextFrequency();
 }
 
@@ -749,19 +649,6 @@ function nextFrequency() {
 
   elements.testPanel.hidden = true;
   elements.resultsPanel.hidden = false;
-  if (sessionUsesUncalibratedWeb) {
-    elements.chartCaption.textContent = "Primer nivel percibido · dBFS (sin calibrar)";
-    elements.resultDisclaimer.textContent =
-      "Modo exploratorio sin calibración: los niveles dBFS dependen del dispositivo y no equivalen a dB HL. No es una audiometría clínica ni un diagnóstico. La exportación de PDF requiere un perfil calibrado.";
-    elements.pdfButton.hidden = true;
-    elements.shareButton.hidden = true;
-  } else {
-    elements.chartCaption.textContent = "Primer umbral percibido · dB HL";
-    elements.resultDisclaimer.textContent =
-      `Perfil acústico: ${sessionCalibrationProfile.name} · ${sessionCalibrationProfile.output_chain}. Registro exploratorio; no sustituye una audiometría clínica.`;
-    elements.pdfButton.hidden = false;
-    elements.shareButton.hidden = false;
-  }
   updateResultActionButtons();
   renderChart();
   elements.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -808,13 +695,6 @@ function resetSession() {
   frequencyIndex = 0;
   currentLevel = MIN_LEVEL;
   elements.earSelect.value = "left";
-  sessionCalibrationProfile = null;
-  sessionUsesUncalibratedWeb = false;
-  elements.calibrationProfile.disabled = false;
-  elements.calibrationProfile.value = "";
-  elements.allowUncalibratedWeb.disabled = false;
-  elements.allowUncalibratedWeb.checked = false;
-  updateCalibrationProfileState();
   sessionPatientName = "";
   sessionPatientAge = null;
 
@@ -867,19 +747,13 @@ function renderChart() {
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;
-  const uncalibrated = sessionUsesUncalibratedWeb;
-  const y = uncalibrated
-    ? (level) => plot.top + ((level - MIN_LEVEL) / (MAX_LEVEL - MIN_LEVEL)) * (plot.bottom - plot.top)
-    : (level) => plot.top + ((level + 10) / 130) * (plot.bottom - plot.top);
+  const y = (level) => plot.top + (-level / 100) * (plot.bottom - plot.top);
 
   context.clearRect(0, 0, width, height);
   context.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = "right";
   context.textBaseline = "middle";
-  const levelTicks = uncalibrated
-    ? [-60, -50, -40, -30, -20]
-    : [-10, 0, 20, 40, 60, 80, 100, 120];
-  for (const level of levelTicks) {
+  for (let level = 0; level >= -100; level -= 20) {
     const rowY = y(level);
     context.strokeStyle = "#dce4de";
     context.lineWidth = 1;
@@ -916,13 +790,8 @@ function renderChart() {
   const styles = { left: "#d56c50", right: "#237e72" };
   ["left", "right"].forEach((ear) => {
     const points = measurements
-      .filter((item) => item.ear === ear
-        && (uncalibrated ? item.level_dbfs !== null : item.level_dbhl !== null)
-        && FREQUENCIES.includes(item.frequency_hz))
-      .map((item) => ({
-        x: x(item.frequency_hz),
-        y: y(uncalibrated ? item.level_dbfs : item.level_dbhl),
-      }));
+      .filter((item) => item.ear === ear && item.level_dbfs !== null && FREQUENCIES.includes(item.frequency_hz))
+      .map((item) => ({ x: x(item.frequency_hz), y: y(item.level_dbfs) }));
     context.strokeStyle = styles[ear];
     context.lineWidth = 2;
     context.beginPath();
@@ -945,10 +814,9 @@ function getReportPayload() {
   const ageRaw = sessionPatientAge || parseInt(elements.patientAge?.value, 10);
   const patientAge = (!Number.isNaN(ageRaw) && ageRaw > 0) ? ageRaw : null;
   return {
-    measurements: measurements.map((measurement) => ({ ...measurement })),
+    measurements,
     patient_name: patientName,
     patient_age: patientAge,
-    calibration_profile: sessionCalibrationProfile,
   };
 }
 
@@ -1013,19 +881,35 @@ async function fetchPdfBlob() {
   return await response.blob();
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function exportPdf() {
-  if (sessionUsesUncalibratedWeb) {
-    showToast("Para exportar el PDF se necesita un perfil acústico calibrado.", 5000);
-    return;
-  }
   elements.pdfButton.disabled = true;
   const originalText = elements.pdfButton.textContent;
   elements.pdfButton.textContent = "Exportando...";
   try {
     const filename = getReportFilename();
 
+    if (window.AndroidApp?.savePdfBase64) {
+      showToast("Descargando reporte PDF...", 3000);
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.savePdfBase64(base64, filename, false);
+      return;
+    }
+
     if (window.AndroidApp?.exportPdf) {
-      window.AndroidApp.exportPdf(JSON.stringify(getReportPayload()), false);
+      showToast("Descargando reporte PDF...", 3000);
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.exportPdf(base64, filename);
       return;
     }
 
@@ -1043,18 +927,23 @@ async function exportPdf() {
 }
 
 async function shareResults() {
-  if (sessionUsesUncalibratedWeb) {
-    showToast("Para compartir el PDF se necesita un perfil acústico calibrado.", 5000);
-    return;
-  }
   elements.shareButton.disabled = true;
   const originalText = elements.shareButton.textContent;
   elements.shareButton.textContent = "Preparando...";
   try {
     const filename = getReportFilename();
 
-    if (window.AndroidApp?.exportPdf) {
-      window.AndroidApp.exportPdf(JSON.stringify(getReportPayload()), true);
+    if (window.AndroidApp?.savePdfBase64) {
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.savePdfBase64(base64, filename, true);
+      return;
+    }
+
+    if (window.AndroidApp?.sharePdf) {
+      const blob = await fetchPdfBlob();
+      const base64 = await blobToBase64(blob);
+      window.AndroidApp.sharePdf(base64, filename);
       return;
     }
 
@@ -1106,14 +995,7 @@ elements.heardButton.addEventListener("click", () => recordResponse(true));
 elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
-elements.calibrationProfile.addEventListener("change", () => {
-  updateCalibrationProfileState();
-  updateSetupState();
-});
-elements.allowUncalibratedWeb.addEventListener("change", () => {
-  updateCalibrationProfileState();
-  updateSetupState();
-});
+elements.calibrateBtn?.addEventListener("click", playCalibrationTone);
 elements.otherEarButton?.addEventListener("click", () => {
   goToOtherEar();
 });
@@ -1177,8 +1059,3 @@ window.setInterval(() => {
 
 updateSetupState();
 updateResultActionButtons();
-if (getCalibrationPlatform() === "web") {
-  elements.webUncalibratedOption.hidden = false;
-  elements.calibrationProfileLabel.textContent = "Perfil acústico validado (opcional en web)";
-}
-loadCalibrationProfiles();

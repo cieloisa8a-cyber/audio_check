@@ -7,20 +7,18 @@
   <meta name="theme-color" content="#142b2a">
   <meta name="description" content="Prueba auditiva exploratoria con tonos puros y registro personal.">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icons/logo%20audiometria.jpg" type="image/jpeg">
+  <link rel="shortcut icon" href="/static/icons/logo%20audiometria.jpg" type="image/jpeg">
   <link rel="icon" href="/static/icons/favicon.png" type="image/png" sizes="64x64">
-  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
-  <link rel="stylesheet" href="/static/app.css?v=required-dBHL-v1">
+  <link rel="stylesheet" href="/static/app.css?v=patient-gap-v1">
   <title>Audio Check | Prueba auditiva</title>
 </head>
 
 <body>
   <main>
     <section class="intro" aria-labelledby="page-title">
-      <div class="intro-brand">
-        <img class="brand-mark" src="/static/icons/icon-192.png" alt="Audio Check" width="40" height="40">
-        <p class="eyebrow">PERCEPCIÓN DE TONOS · 250–8000 HZ</p>
-      </div>
+      <p class="eyebrow">PERCEPCIÓN DE TONOS · 250–8000 HZ</p>
       <h1 id="page-title">Escucha con<br><em>atención.</em></h1>
       <p class="intro-copy">Un registro orientativo de los tonos que percibes, oído por oído.</p>
     </section>
@@ -71,19 +69,16 @@
         <span class="check-box" aria-hidden="true"></span>
         <span>Entiendo que alterar el volumen físico durante la prueba invalidará los resultados.</span>
       </label>
-      <div class="calibration-profile">
-        <label id="calibration-profile-label" for="calibration-profile">Perfil acústico validado (obligatorio)</label>
-        <select id="calibration-profile" required>
-          <option value="">Cargando perfiles dB HL…</option>
-        </select>
-        <p id="calibration-profile-note" class="support-message" role="status">
-          No se puede comenzar hasta cargar un perfil acústico validado para esta plataforma y salida.
-        </p>
-        <label id="web-uncalibrated-option" class="check-row" hidden>
-          <input id="allow-uncalibrated-web" type="checkbox">
-          <span class="check-box" aria-hidden="true"></span>
-          <span>Continuar sin calibración en la web. Los resultados serán niveles digitales dBFS, no dB HL ni una medición clínica.</span>
-        </label>
+      <div class="notice calibration-notice" role="note">
+        <span class="notice-icon" aria-hidden="true">!</span>
+        <div>
+          <p><strong>Calibración obligatoria:</strong> Ponte los auriculares y reproduce el tono de prueba. Ajusta el
+            volumen del dispositivo hasta que el sonido sea
+            <strong>claro y cómodo, similar al volumen de una conversación normal a un metro de distancia</strong>.
+            No lo pongas demasiado fuerte.
+          </p>
+          <button id="calibrate-btn" class="button button-quiet" type="button">Reproducir tono de prueba</button>
+        </div>
       </div>
       <div class="setup-actions">
         <label class="ear-select-label" for="ear-select">OÍDO</label>
@@ -108,7 +103,7 @@
         <span class="tone-orbit" aria-hidden="true"><span></span></span>
         <div><span id="frequency-label" class="frequency-value">1000</span><span class="frequency-unit">Hz</span></div>
       </div>
-      <p id="level-label" class="level-label">Nivel de estímulo: requiere calibración dB HL</p>
+      <p id="level-label" class="level-label">Nivel relativo: −50 dBFS</p>
       <p class="instruction">Reproduce el tono. Luego indica si lo percibiste con claridad.</p>
       <div class="test-actions">
         <button id="play-button" class="button button-primary" type="button"><span aria-hidden="true">▶</span>
@@ -117,7 +112,7 @@
         <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
-      <p id="test-fine-print" class="fine-print">El umbral se presenta en dB HL únicamente con el perfil acústico validado seleccionado.</p>
+      <p class="fine-print">Tono puro de 1 segundo. Nivel digital relativo, sin calibración acústica.</p>
     </section>
 
     <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
@@ -128,7 +123,7 @@
         </div>
         <span class="step-count">03 <span>/ 03</span></span>
       </div>
-      <p id="chart-caption" class="chart-caption">Primer umbral percibido · dB HL</p>
+      <p class="chart-caption">Primer nivel relativo percibido · dBFS <span>(no calibrado)</span></p>
       <div class="chart-wrap"><canvas id="audiogram" role="img"
           aria-label="Gráfica de niveles percibidos por frecuencia"></canvas></div>
       <div class="chart-legend"><span><i class="legend-dot left-dot"></i>Izquierdo</span><span><i
@@ -139,7 +134,8 @@
         <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
-      <p id="result-disclaimer" class="result-disclaimer">El perfil de salida usado aparece en el informe. Esta prueba exploratoria no sustituye una audiometría clínica ni un diagnóstico.</p>
+      <p class="result-disclaimer">No es una audiometría clínica ni un diagnóstico. Los resultados se expresan en escala
+        digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).</p>
     </section>
   </main>
 
@@ -153,8 +149,6 @@
           Guerrero</strong></p>
       <p class="credits-academic">Estudiantes de Ingeniería de Sonido · Universidad de San Buenaventura Medellín</p>
       <p class="credits-course">Asignatura Psicoacústica · Semestre 2026-2</p>
-      <p><a href="https://github.com/juanitowarrior28/audio_check/releases/latest/download/AudioCheck.apk"
-          rel="noopener" target="_blank">Descargar la app para Android (APK)</a></p>
     </div>
   </footer>
   <div id="toast-banner" class="toast-banner" role="alert" aria-live="assertive" hidden>
@@ -176,7 +170,7 @@
       style="font-size: 0.8rem; text-decoration: underline; color: #6b7280; cursor: pointer; display: block; text-align: center; margin-top: 10px;">Continuar
       sin auriculares (Modo de prueba QA)</a>
   </dialog>
-  <script src="/static/app.js?v=web-uncalibrated-v2" defer></script>
+  <script src="/static/app.js?v=mobile-export-share-v5" defer></script>
 </body>
 
 </html>
