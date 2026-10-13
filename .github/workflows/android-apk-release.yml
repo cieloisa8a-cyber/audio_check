@@ -1,0 +1,45 @@
+name: Build and publish Android APK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.8"
+
+      - name: Build APK
+        run: gradle --no-daemon -p android :app:assembleDebug
+
+      - name: Publish APK to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "android/app/build/outputs/apk/debug/app-debug.apk#AudioCheck.apk" \
+            --title "Audio Check $GITHUB_REF_NAME" \
+            --notes "APK de Android para instalación directa. La aplicación no sustituye una audiometría clínica."

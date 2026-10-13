@@ -14,10 +14,10 @@
 
 **Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (250 Hz – 8000 Hz).
 
-La aplicación permite evaluar ambos oídos de forma independiente o consecutiva, trazando un audiograma interactivo en escala digital relativa (**dBFS**) y exportando un reporte clínico referencial en formato **PDF**, con los datos del paciente (nombre y edad).
+La aplicación mide ambos oídos y presenta umbrales en **dB HL**. La prueba solo se habilita al cargar un perfil acústico aprobado para la plataforma y cadena de salida exactas; no inventa ni estima valores clínicos a partir de dBFS.
 
 > ⚠️ **Aviso importante / Disclaimer:**  
-> Esta herramienta **no sustituye una audiometría clínica profesional** ni genera lecturas en dB HL o dB SPL. Al carecer de calibración con sonómetro y acoplador acústico (oído artificial), los resultados se expresan en escala digital relativa (dBFS) y su propósito es estrictamente académico y orientativo.
+> Esta herramienta **no sustituye una audiometría clínica profesional** ni constituye un dispositivo médico. El nivel dB HL solo es trazable cuando un especialista incorpora referencias medidas con instrumental acústico y un acoplador apropiado para cada plataforma, salida, auricular y ajuste de volumen. El nivel digital dBFS del generador por sí solo no permite inferir dB HL. El catálogo se entrega vacío y la app bloquea la medición hasta instalar un perfil aprobado.
 
 ---
 
@@ -32,9 +32,9 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
     $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
   - Se omiten frecuencias redundantes (125, 750 y 1500 Hz) para una prueba más ágil y precisa.
 - **Audiograma dinámico:**
-  - Trazado en tiempo real en canvas HTML5 con curvas identificadas por colores normativos (rojo: oído izquierdo, verde azulado: oído derecho) y compensación para pantallas Retina y móviles.
+  - Trazado en tiempo real en dB HL con curvas identificadas por colores (rojo: oído izquierdo, verde azulado: oído derecho).
 - **Exportación en PDF vectorial y Compartir nativo:**
-  - Generación de reportes vectoriales en el backend con **ReportLab**.
+  - Generación de reportes vectoriales en el backend con **ReportLab**, validando el perfil y la conversión dB HL.
   - En la aplicación móvil, soporte nativo de **guardado en la carpeta Descargas** con notificación en la barra de estado del sistema.
   - Integración nativa con el menú de compartir de Android (`Intent.ACTION_SEND` mediante `FileProvider`) para enviar el PDF de forma directa a WhatsApp, Telegram, Gmail o Google Drive.
 - **Protección de rigor médico y hardware:**
@@ -72,6 +72,7 @@ audio_check/
 │   └── static/
 │       ├── app.css          # Estilos y diseño responsivo adaptativo
 │       ├── app.js           # Lógica psicoacústica, síntesis, comunicación puente y exportación
+│       ├── calibration-profiles.json # Perfiles acústicos aprobados por plataforma
 │       ├── sw.js            # Service Worker para capacidades PWA y caché
 │       └── manifest.webmanifest
 ├── android/                 # Módulo Android del proyecto
@@ -81,13 +82,31 @@ audio_check/
 │           ├── AndroidBridge.java    # Interfaz JavaScript para puente nativo (audio y PDF)
 │           └── PdfFileProvider.java  # Proveedor seguro de archivos para compartir PDF
 ├── macos/                   # Scripts y LaunchAgent para despliegue local en macOS
+├── api/index.py             # Entrada FastAPI para Vercel
+├── vercel.json              # Rutas de publicación web/API
+├── .github/workflows/       # Publicación automatizada del APK
 ├── requirements.txt         # Dependencias de Python
 └── README.md
 ```
 
 ---
 
-## 🚀 Instalación y uso local
+## 🚀 Publicar en Vercel
+
+1. Importa `juanitowarrior28/audio_check` en Vercel y conserva la raíz del proyecto como **Root Directory**.
+2. Vercel instalará las dependencias de `requirements.txt` y desplegará `api/index.py` con el runtime Python.
+3. Asigna el dominio desde **Project → Settings → Domains**. Vercel genera una URL pública `https://<proyecto>.vercel.app`; un dominio propio requiere que su propietario configure el DNS. El proyecto no codifica `localhost` como URL de producción.
+4. Cada despliegue publica conjuntamente el frontend y `/api/report.pdf`; el cliente usa rutas relativas.
+
+La app Android contiene el mismo frontend estático empaquetado y no requiere que la API esté disponible para ejecutar la prueba o generar PDFs nativos. La web pública sí requiere el endpoint de Vercel para generar el PDF.
+
+## 🔊 Perfiles de calibración requeridos
+
+Edita `frontend/static/calibration-profiles.json` únicamente con datos medidos y aprobados por un responsable de calibración. La plantilla se entrega vacía intencionalmente. Cada entrada debe incluir `id`, `name`, `platform` (`web`, `ios` o `android`), `output_chain`, `reference_dbfs` y `db_hl_at_reference_dbfs`, con una referencia medida para cada frecuencia: 250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz.
+
+La conversión aplicada es `dB HL = nivel de estímulo dBFS - reference_dbfs + db_hl_at_reference_dbfs[frecuencia]`. Cada perfil debe identificar la cadena exacta (dispositivo, salida, auricular y volumen); crea perfiles distintos para cada plataforma/cadena medida. Backend y Android verifican que perfil y resultado correspondan al catálogo. Sin un perfil aprobado para la plataforma, la prueba queda bloqueada. **No agregues coeficientes de ejemplo ni uses un ajuste auditivo subjetivo como calibración**: se necesita medición acústica con instrumental y acoplador apropiados.
+
+## 🛠️ Desarrollo local (opcional)
 
 ### 1. Prerrequisitos
 - **Python 3.9** o superior instalado en el sistema.
@@ -154,18 +173,22 @@ La aplicación móvil conecta el frontend optimizado con capacidades nativas del
    - Guardado directo de reportes en `Descargas/Audio Check` con notificación del sistema.
    - Menú de compartir nativo para WhatsApp, Telegram y otras aplicaciones.
 
+### Distribuir un APK instalable
+
+Publica un tag de versión (`git tag v1.0.0 && git push origin v1.0.0`). GitHub Actions compilará un APK de depuración e intentará adjuntarlo a **GitHub Releases** como `AudioCheck.apk`; la web incluye el enlace a la descarga más reciente. Es para instalación directa/pruebas, no una publicación firmada de producción; para reemplazar una versión debug instalada con una clave efímera podría ser necesario desinstalarla primero. Para Play Store hacen falta una cuenta Play Console, una clave de firma de lanzamiento gestionada como secreto y revisión de Google. En iOS se puede instalar la PWA desde el navegador; una app de App Store requiere publicación independiente.
+
 ---
 
 ## 📋 Protocolo de la prueba
 
 1. **Datos del paciente:** Ingresa el nombre del paciente y la edad en el formulario inicial.
-2. **Entorno y calibración:**
+2. **Entorno y perfil acústico:**
    - Conecta auriculares con cable (no uses altavoces ni auriculares Bluetooth con compresión).
    - Sitúate en un entorno silencioso para no enmascarar frecuencias graves.
-   - Realiza la calibración con el tono de prueba de 1000 Hz ajustando el volumen físico del dispositivo a un nivel conversacional cómodo.
+   - Selecciona solo un perfil dB HL aprobado para esa plataforma, dispositivo, salida, auriculares y volumen. Sin perfil calibrado, la aplicación no inicia ni registra mediciones.
 3. **Ejecución:**
    - Para cada frecuencia, reproduce el tono de 1 segundo.
-   - Indica si lo percibiste claramente o no para avanzar al siguiente escalón de nivel.
+   - Indica si lo percibiste para avanzar al siguiente escalón, representado y reportado en dB HL.
 4. **Resultados y entrega:**
    - Visualiza el audiograma resultante.
    - Pulsa **Medir el otro oído** para evaluar el oído restante de forma inmediata sin repetir los pasos de preparación.

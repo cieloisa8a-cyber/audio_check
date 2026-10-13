@@ -48,6 +48,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -261,7 +262,9 @@ public final class MainActivity extends Activity {
         if (lower.endsWith(".js")) return "application/javascript";
         if (lower.endsWith(".svg")) return "image/svg+xml";
         if (lower.endsWith(".png")) return "image/png";
-        if (lower.endsWith(".webmanifest") || lower.endsWith(".json")) return "application/manifest+json";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".webmanifest")) return "application/manifest+json";
+        if (lower.endsWith(".json")) return "application/json";
         return "application/octet-stream";
     }
 
@@ -303,7 +306,7 @@ public final class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 ParsedReportData data = parseReportData(json);
-                byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge);
+                byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge, data);
                 String filename = buildPdfFilename(data.patientName);
 
                 if (share) {
@@ -333,27 +336,36 @@ public final class MainActivity extends Activity {
         List<Measurement> measurements = new ArrayList<>();
         String patientName;
         Integer patientAge;
+        String calibrationProfileName;
+        String calibrationPlatform;
+        String calibrationOutputChain;
     }
 
     private ParsedReportData parseReportData(String json) throws Exception {
         ParsedReportData data = new ParsedReportData();
-        JSONArray values;
-        String trimmed = json != null ? json.trim() : "";
-        if (trimmed.startsWith("{")) {
-            JSONObject obj = new JSONObject(trimmed);
-            values = obj.getJSONArray("measurements");
-            if (obj.has("patient_name") && !obj.isNull("patient_name")) {
-                data.patientName = obj.optString("patient_name", null);
-            }
-            if (obj.has("patient_age") && !obj.isNull("patient_age")) {
-                data.patientAge = obj.optInt("patient_age", -1);
-                if (data.patientAge <= 0) data.patientAge = null;
-            }
-        } else {
-            values = new JSONArray(trimmed);
+        JSONObject report = new JSONObject(json);
+        JSONObject profile = report.getJSONObject("calibration_profile");
+        JSONObject approvedProfile = findApprovedCalibrationProfile(
+                profile.getString("id"),
+                profile.getString("platform")
+        );
+        if (approvedProfile == null || !sameCalibrationProfile(profile, approvedProfile)
+                || !"android".equals(profile.optString("platform"))) {
+            throw new IllegalArgumentException("No existe un perfil dB HL aprobado para esta instalación Android.");
+        }
+        data.calibrationProfileName = profile.getString("name");
+        data.calibrationPlatform = profile.getString("platform");
+        data.calibrationOutputChain = profile.getString("output_chain");
+        JSONArray values = report.getJSONArray("measurements");
+        if (report.has("patient_name") && !report.isNull("patient_name")) {
+            data.patientName = report.optString("patient_name", null);
+        }
+        if (report.has("patient_age") && !report.isNull("patient_age")) {
+            data.patientAge = report.optInt("patient_age", -1);
+            if (data.patientAge <= 0) data.patientAge = null;
         }
 
-        if (values.length() == 0) {
+        if (values.length() == 0 || values.length() > MAX_MEASUREMENTS) {
             throw new IllegalArgumentException("No hay mediciones para exportar.");
         }
 
@@ -362,22 +374,81 @@ public final class MainActivity extends Activity {
             String ear = value.getString("ear");
             int frequency = value.getInt("frequency_hz");
             if (!"left".equals(ear) && !"right".equals(ear)) {
-                continue;
+                throw new IllegalArgumentException("Oído no válido en una medición.");
             }
             if (!isFrequency(frequency)) {
-                continue;
+                throw new IllegalArgumentException("Frecuencia no válida en una medición.");
             }
-            Integer level = value.isNull("level_dbfs") ? null : value.getInt("level_dbfs");
-            if (level != null && (level < -60 || level > -20)) {
-                continue;
+            if (!value.has("level_dbfs") || !value.has("level_dbhl")) {
+                throw new IllegalArgumentException("Cada medición debe incluir el umbral dB HL y su nivel de estímulo.");
             }
-            data.measurements.add(new Measurement(ear, frequency, level));
+            Integer stimulusDbfs = value.isNull("level_dbfs") ? null : value.getInt("level_dbfs");
+            Double thresholdDbhl = value.isNull("level_dbhl") ? null : value.getDouble("level_dbhl");
+            if ((stimulusDbfs == null) != (thresholdDbhl == null)) {
+                throw new IllegalArgumentException("Los valores dB HL y su nivel de estímulo deben ser ambos nulos o numéricos.");
+            }
+            if (stimulusDbfs != null) {
+                if (stimulusDbfs < -60 || stimulusDbfs > -20 || thresholdDbhl < -10 || thresholdDbhl > 120) {
+                    throw new IllegalArgumentException("Nivel dB HL fuera del rango permitido.");
+                }
+                JSONObject references = profile.getJSONObject("db_hl_at_reference_dbfs");
+                double expectedDbhl = stimulusDbfs - profile.getDouble("reference_dbfs")
+                        + references.getDouble(String.valueOf(frequency));
+                if (Math.abs(thresholdDbhl - expectedDbhl) > 0.01) {
+                    throw new IllegalArgumentException("El umbral dB HL no coincide con el perfil de calibración.");
+                }
+            }
+            data.measurements.add(new Measurement(ear, frequency, thresholdDbhl));
         }
 
         if (data.measurements.isEmpty()) {
             throw new IllegalArgumentException("No hay mediciones válidas para exportar.");
         }
         return data;
+    }
+
+    private JSONObject findApprovedCalibrationProfile(String profileId, String platform) throws Exception {
+        try (InputStream input = getAssets().open("static/calibration-profiles.json");
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+            }
+            JSONObject catalog = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
+            if (catalog.optInt("version") != 1) {
+                throw new IllegalArgumentException("Versión del catálogo de calibración no compatible.");
+            }
+            JSONArray profiles = catalog.getJSONArray("profiles");
+            for (int i = 0; i < profiles.length(); i++) {
+                JSONObject profile = profiles.getJSONObject(i);
+                if (profileId.equals(profile.optString("id"))
+                        && platform.equals(profile.optString("platform"))) {
+                    return profile;
+                }
+            }
+            return null;
+        }
+    }
+
+    private static boolean sameCalibrationProfile(JSONObject supplied, JSONObject approved) throws Exception {
+        if (supplied.length() != 6 || approved.length() != 6) return false;
+        String[] textFields = {"id", "name", "platform", "output_chain"};
+        for (String field : textFields) {
+            if (!supplied.optString(field).equals(approved.optString(field))) return false;
+        }
+        if (supplied.getDouble("reference_dbfs") != approved.getDouble("reference_dbfs")) return false;
+        JSONObject suppliedReferences = supplied.getJSONObject("db_hl_at_reference_dbfs");
+        JSONObject approvedReferences = approved.getJSONObject("db_hl_at_reference_dbfs");
+        if (suppliedReferences.length() != FREQUENCIES.length
+                || approvedReferences.length() != FREQUENCIES.length) return false;
+        for (int frequency : FREQUENCIES) {
+            String key = String.valueOf(frequency);
+            if (Math.abs(suppliedReferences.getDouble(key) - approvedReferences.getDouble(key)) > 0.0001) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isFrequency(int frequency) {
@@ -513,7 +584,12 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private static byte[] createPdf(List<Measurement> measurements, String patientName, Integer patientAge) throws Exception {
+    private static byte[] createPdf(
+            List<Measurement> measurements,
+            String patientName,
+            Integer patientAge,
+            ParsedReportData reportData
+    ) throws Exception {
         PdfDocument document = new PdfDocument();
         PdfDocument.Page page = document.startPage(
                 new PdfDocument.PageInfo.Builder(792, 612, 1).create()
@@ -530,7 +606,7 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(10);
-        canvas.drawText("Registro exploratorio · niveles digitales relativos (dBFS)", 48, 68, paint);
+        canvas.drawText("Registro de umbrales · decibelios de audición (dB HL)", 48, 68, paint);
 
         if (patientName != null || patientAge != null) {
             StringBuilder info = new StringBuilder();
@@ -549,12 +625,23 @@ public final class MainActivity extends Activity {
                 canvas.drawText(info.toString(), 48, 84, paint);
             }
         }
+        paint.setColor(MUTED);
+        paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
+        paint.setTextSize(8);
+        canvas.drawText("Perfil acústico: " + reportData.calibrationProfileName, 48, 100, paint);
+        canvas.drawText(
+                "Plataforma/salida: " + reportData.calibrationPlatform + " · " + reportData.calibrationOutputChain,
+                48,
+                112,
+                paint
+        );
 
         float left = 96;
         float right = 750;
         float bottom = 500;
         float top = 118;
-        for (int level = 0; level >= -100; level -= 20) {
+        int[] levels = {-10, 0, 20, 40, 60, 80, 100, 120};
+        for (int level : levels) {
             float y = yPosition(level, top, bottom);
             paint.setColor(GRID);
             paint.setStrokeWidth(0.6f);
@@ -580,7 +667,7 @@ public final class MainActivity extends Activity {
         canvas.save();
         canvas.rotate(-90, 34, (bottom + top) / 2);
         paint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("Nivel relativo indicado (dBFS, no calibrado)", 34, (bottom + top) / 2, paint);
+        canvas.drawText("Umbral auditivo indicado (dB HL)", 34, (bottom + top) / 2, paint);
         canvas.restore();
 
         drawSeries(canvas, paint, measurements, "left", LEFT, "Oído izquierdo", left, right, top, bottom);
@@ -590,11 +677,21 @@ public final class MainActivity extends Activity {
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
         paint.setTextAlign(Paint.Align.LEFT);
         paint.setTextSize(9);
-        canvas.drawText("No es una audiometría clínica. No representa dB SPL ni dB HL.", left, 543, paint);
+        canvas.drawText(
+                "Registro exploratorio; no sustituye una audiometría clínica ni un diagnóstico.",
+                left,
+                543,
+                paint
+        );
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(8);
-        canvas.drawText("Los resultados se expresan en escala digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).", left, 558, paint);
+        canvas.drawText(
+                "dB HL calculados con el perfil acústico indicado; su validez depende de calibrar esa cadena de salida.",
+                left,
+                558,
+                paint
+        );
 
         paint.setTextSize(7.5f);
         paint.setTextAlign(Paint.Align.CENTER);
@@ -624,10 +721,10 @@ public final class MainActivity extends Activity {
             for (Measurement measurement : measurements) {
                 if (ear.equals(measurement.ear)
                         && frequency == measurement.frequency
-                        && measurement.level != null) {
+                        && measurement.levelDbhl != null) {
                     points.add(new float[]{
                             xPosition(frequency, left, right),
-                            yPosition(measurement.level, top, bottom)
+                            yPosition(measurement.levelDbhl, top, bottom)
                     });
                     break;
                 }
@@ -668,19 +765,19 @@ public final class MainActivity extends Activity {
         return left + index * columnWidth;
     }
 
-    private static float yPosition(int level, float top, float bottom) {
-        return top + (-level / 100f) * (bottom - top);
+    private static float yPosition(double levelDbhl, float top, float bottom) {
+        return top + (float) ((levelDbhl + 10) / 130) * (bottom - top);
     }
 
     private static final class Measurement {
         final String ear;
         final int frequency;
-        final Integer level;
+        final Double levelDbhl;
 
-        Measurement(String ear, int frequency, Integer level) {
+        Measurement(String ear, int frequency, Double levelDbhl) {
             this.ear = ear;
             this.frequency = frequency;
-            this.level = level;
+            this.levelDbhl = levelDbhl;
         }
     }
 }
