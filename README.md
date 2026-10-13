@@ -14,10 +14,10 @@
 
 **Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (250 Hz – 8000 Hz).
 
-La aplicación mide ambos oídos y presenta umbrales en **dB HL**. La prueba solo se habilita al cargar un perfil acústico aprobado para la plataforma y cadena de salida exactas; no inventa ni estima valores clínicos a partir de dBFS.
+Con un perfil acústico aprobado para la plataforma y cadena de salida exactas, la aplicación presenta umbrales en **dB HL**. En la versión web se puede elegir continuar sin calibración para una exploración no clínica; esos resultados se expresan únicamente en dBFS y no son comparables con dB HL. La app no inventa ni estima valores clínicos a partir de dBFS.
 
 > ⚠️ **Aviso importante / Disclaimer:**  
-> Esta herramienta **no sustituye una audiometría clínica profesional** ni constituye un dispositivo médico. El nivel dB HL solo es trazable cuando un especialista incorpora referencias medidas con instrumental acústico y un acoplador apropiado para cada plataforma, salida, auricular y ajuste de volumen. El nivel digital dBFS del generador por sí solo no permite inferir dB HL. El catálogo se entrega vacío y la app bloquea la medición hasta instalar un perfil aprobado.
+> Esta herramienta **no sustituye una audiometría clínica profesional** ni constituye un dispositivo médico. El nivel dB HL solo es trazable cuando un especialista incorpora referencias medidas con instrumental acústico y un acoplador apropiado para cada plataforma, salida, auricular y ajuste de volumen. El nivel digital dBFS del generador por sí solo no permite inferir dB HL. El catálogo se entrega vacío; en web se puede omitir el perfil únicamente para obtener niveles digitales exploratorios, nunca resultados dB HL. Android sigue exigiendo el perfil aprobado.
 
 ---
 
@@ -104,7 +104,7 @@ La app Android contiene el mismo frontend estático empaquetado y no requiere qu
 
 Edita `frontend/static/calibration-profiles.json` únicamente con datos medidos y aprobados por un responsable de calibración. La plantilla se entrega vacía intencionalmente. Cada entrada debe incluir `id`, `name`, `platform` (`web`, `ios` o `android`), `output_chain`, `reference_dbfs` y `db_hl_at_reference_dbfs`, con una referencia medida para cada frecuencia: 250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz.
 
-La conversión aplicada es `dB HL = nivel de estímulo dBFS - reference_dbfs + db_hl_at_reference_dbfs[frecuencia]`. Cada perfil debe identificar la cadena exacta (dispositivo, salida, auricular y volumen); crea perfiles distintos para cada plataforma/cadena medida. Backend y Android verifican que perfil y resultado correspondan al catálogo. Sin un perfil aprobado para la plataforma, la prueba queda bloqueada. **No agregues coeficientes de ejemplo ni uses un ajuste auditivo subjetivo como calibración**: se necesita medición acústica con instrumental y acoplador apropiados.
+La conversión aplicada es `dB HL = nivel de estímulo dBFS - reference_dbfs + db_hl_at_reference_dbfs[frecuencia]`. Cada perfil debe identificar la cadena exacta (dispositivo, salida, auricular y volumen); crea perfiles distintos para cada plataforma/cadena medida. Backend y Android verifican que perfil y resultado correspondan al catálogo. Android exige un perfil aprobado. En web se puede marcar **Continuar sin calibración** para hacer una exploración en dBFS; los resultados no se presentan como dB HL y no se puede exportar un PDF calibrado. **No agregues coeficientes de ejemplo ni uses un ajuste auditivo subjetivo como calibración**: se necesita medición acústica con instrumental y acoplador apropiados.
 
 ## 🛠️ Desarrollo local (opcional)
 
@@ -185,7 +185,7 @@ Publica un tag de versión (`git tag v1.0.0 && git push origin v1.0.0`). GitHub 
 2. **Entorno y perfil acústico:**
    - Conecta auriculares con cable (no uses altavoces ni auriculares Bluetooth con compresión).
    - Sitúate en un entorno silencioso para no enmascarar frecuencias graves.
-   - Selecciona solo un perfil dB HL aprobado para esa plataforma, dispositivo, salida, auriculares y volumen. Sin perfil calibrado, la aplicación no inicia ni registra mediciones.
+   - Selecciona un perfil dB HL aprobado para esa plataforma, dispositivo, salida, auriculares y volumen. En la web, puedes continuar sin perfil en modo exploratorio: los valores serán dBFS, no dB HL, y no se habilitará el PDF calibrado. Android requiere perfil.
 3. **Ejecución:**
    - Para cada frecuencia, reproduce el tono de 1 segundo.
    - Indica si lo percibiste para avanzar al siguiente escalón, representado y reportado en dB HL.

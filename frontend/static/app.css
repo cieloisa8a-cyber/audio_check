@@ -42,6 +42,7 @@ h2 { margin: 0; font: 650 23px var(--display); letter-spacing: 0; }
 .calibration-profile select { width: 100%; }
 .calibration-profile .support-message { min-height: 0; margin: 0; }
 .check-row { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 19px; color: #43534f; font-size: 14px; line-height: 1.5; cursor: pointer; }
+.check-row[hidden] { display: none; }
 .check-row input { position: absolute; width: 20px; height: 20px; margin: 0; opacity: 0; }
 .check-box { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid #aebbb3; border-radius: 3px; background: white; }
 .check-row input:checked + .check-box { background: var(--green); border-color: var(--green); }

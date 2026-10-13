@@ -72,13 +72,18 @@
         <span>Entiendo que alterar el volumen físico durante la prueba invalidará los resultados.</span>
       </label>
       <div class="calibration-profile">
-        <label for="calibration-profile">Perfil acústico validado (obligatorio)</label>
+        <label id="calibration-profile-label" for="calibration-profile">Perfil acústico validado (obligatorio)</label>
         <select id="calibration-profile" required>
           <option value="">Cargando perfiles dB HL…</option>
         </select>
         <p id="calibration-profile-note" class="support-message" role="status">
           No se puede comenzar hasta cargar un perfil acústico validado para esta plataforma y salida.
         </p>
+        <label id="web-uncalibrated-option" class="check-row" hidden>
+          <input id="allow-uncalibrated-web" type="checkbox">
+          <span class="check-box" aria-hidden="true"></span>
+          <span>Continuar sin calibración en la web. Los resultados serán niveles digitales dBFS, no dB HL ni una medición clínica.</span>
+        </label>
       </div>
       <div class="setup-actions">
         <label class="ear-select-label" for="ear-select">OÍDO</label>
@@ -112,7 +117,7 @@
         <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
-      <p class="fine-print">El umbral se presenta en dB HL únicamente con el perfil acústico validado seleccionado.</p>
+      <p id="test-fine-print" class="fine-print">El umbral se presenta en dB HL únicamente con el perfil acústico validado seleccionado.</p>
     </section>
 
     <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
@@ -171,7 +176,7 @@
       style="font-size: 0.8rem; text-decoration: underline; color: #6b7280; cursor: pointer; display: block; text-align: center; margin-top: 10px;">Continuar
       sin auriculares (Modo de prueba QA)</a>
   </dialog>
-  <script src="/static/app.js?v=required-dBHL-v1" defer></script>
+  <script src="/static/app.js?v=web-uncalibrated-v2" defer></script>
 </body>
 
 </html>

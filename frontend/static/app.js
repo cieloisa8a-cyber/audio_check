@@ -40,9 +40,13 @@ const elements = {
   outputSelect: document.querySelector("#output-select"),
   confirmDeviceBtn: document.querySelector("#confirm-device-btn"),
   calibrationProfile: document.querySelector("#calibration-profile"),
+  calibrationProfileLabel: document.querySelector("#calibration-profile-label"),
   calibrationProfileNote: document.querySelector("#calibration-profile-note"),
+  webUncalibratedOption: document.querySelector("#web-uncalibrated-option"),
+  allowUncalibratedWeb: document.querySelector("#allow-uncalibrated-web"),
   chartCaption: document.querySelector("#chart-caption"),
   resultDisclaimer: document.querySelector("#result-disclaimer"),
+  testFinePrint: document.querySelector("#test-fine-print"),
   patientName: document.querySelector("#patient-name"),
   patientAge: document.querySelector("#patient-age"),
 };
@@ -67,6 +71,7 @@ let sessionPatientName = "";
 let sessionPatientAge = null;
 let calibrationProfiles = [];
 let sessionCalibrationProfile = null;
+let sessionUsesUncalibratedWeb = false;
 let calibrationProfileLoadError = false;
 
 let disconnectRedirectTimer = null;
@@ -133,6 +138,7 @@ async function loadCalibrationProfiles() {
     elements.calibrationProfileNote.textContent =
       "No se pudo cargar el catálogo validado; la medición está bloqueada para evitar reportar valores no calibrados.";
     console.error("No se pudieron cargar los perfiles acústicos:", error);
+    updateCalibrationProfileState();
     updateSetupState();
   }
 }
@@ -145,9 +151,15 @@ function updateCalibrationProfileState() {
   const profile = selectedCalibrationProfile();
   elements.calibrationProfileNote.textContent = profile
     ? `Perfil ${profile.platform}: ${profile.output_chain}. No cambies el volumen ni la salida durante la sesión.`
+    : getCalibrationPlatform() === "web" && elements.allowUncalibratedWeb.checked
+      ? "Modo exploratorio activado: se mostrarán niveles digitales dBFS, no dB HL. No representa una medición clínica."
     : calibrationProfileLoadError
-      ? "No se pudo cargar el catálogo validado; la medición está bloqueada para evitar reportar valores no calibrados."
-      : "Se requiere un perfil acústico medido y validado para esta plataforma, dispositivo, salida y volumen. Sin perfil no se inicia la prueba.";
+      ? getCalibrationPlatform() === "web"
+        ? "No se pudo cargar el catálogo validado. Puedes continuar en web solo en modo exploratorio dBFS."
+        : "No se pudo cargar el catálogo validado; la medición está bloqueada para evitar reportar valores no calibrados."
+      : getCalibrationPlatform() === "web"
+        ? "Se requiere un perfil medido para resultados dB HL. En web puedes omitirlo y continuar en modo exploratorio dBFS."
+        : "Se requiere un perfil acústico medido y validado para esta plataforma, dispositivo, salida y volumen. Sin perfil no se inicia la prueba.";
 }
 
 function dbHlFromDbfs(levelDbfs, frequency, profile) {
@@ -549,10 +561,14 @@ function updateSetupState() {
     && (Boolean(window.AndroidApp) || !elements.volumeLockCheck || elements.volumeLockCheck.checked)
   );
   const profileSelected = Boolean(sessionCalibrationProfile || selectedCalibrationProfile());
+  const uncalibratedWebSelected = getCalibrationPlatform() === "web"
+    && !sessionCalibrationProfile
+    && !selectedCalibrationProfile()
+    && elements.allowUncalibratedWeb.checked;
   const ready = Boolean(
     AudioContextClass
     && patientValid
-    && profileSelected
+    && (profileSelected || uncalibratedWebSelected)
     && allChecksConfirmed
     && (headphonesDetected || canContinueAfterWarning)
   );
@@ -565,7 +581,7 @@ function updateSetupState() {
     elements.audioSupport.textContent = "Conecta auriculares auxiliares para habilitar la prueba.";
   } else if (!AudioContextClass) {
     elements.audioSupport.textContent = "Este navegador no permite generar tonos de audio.";
-  } else if (!profileSelected) {
+  } else if (!profileSelected && !uncalibratedWebSelected) {
     elements.audioSupport.textContent = calibrationProfileLoadError
       ? "No se pudo cargar un perfil acústico validado. La prueba está bloqueada."
       : `Selecciona un perfil acústico dB HL validado para ${getCalibrationPlatform()}.`;
@@ -578,7 +594,11 @@ function updateSetupState() {
 
 async function startTest() {
   const calibrationProfile = sessionCalibrationProfile || selectedCalibrationProfile();
-  if (!calibrationProfile || calibrationProfile.platform !== getCalibrationPlatform()) {
+  const useUncalibratedWeb = !calibrationProfile
+    && getCalibrationPlatform() === "web"
+    && elements.allowUncalibratedWeb.checked;
+  if ((!calibrationProfile && !useUncalibratedWeb)
+      || (calibrationProfile && calibrationProfile.platform !== getCalibrationPlatform())) {
     updateSetupState();
     return;
   }
@@ -587,7 +607,9 @@ async function startTest() {
   await audioContext.resume();
   await applyAudioSink();
   sessionCalibrationProfile = calibrationProfile;
+  sessionUsesUncalibratedWeb = useUncalibratedWeb;
   elements.calibrationProfile.disabled = true;
+  elements.allowUncalibratedWeb.disabled = true;
   if (elements.patientName?.value?.trim()) {
     sessionPatientName = elements.patientName.value.trim();
   }
@@ -610,8 +632,15 @@ function renderCurrentFrequency() {
   elements.testTitle.textContent = currentEar === "left" ? "Oído izquierdo" : "Oído derecho";
   elements.frequencyLabel.textContent = String(frequency);
   elements.frequencyProgress.innerHTML = `${frequencyIndex + 1} <span>/ ${FREQUENCIES.length}</span>`;
-  const levelDbHl = dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile);
-  elements.levelLabel.textContent = `Estímulo: ${levelDbHl} dB HL`;
+  if (sessionUsesUncalibratedWeb) {
+    elements.levelLabel.textContent = `Nivel digital: ${currentLevel} dBFS · sin calibrar`;
+  } else {
+    const levelDbHl = dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile);
+    elements.levelLabel.textContent = `Estímulo: ${levelDbHl} dB HL`;
+  }
+  elements.testFinePrint.textContent = sessionUsesUncalibratedWeb
+    ? "Sin calibración: el nivel digital depende del dispositivo y no equivale a dB HL ni a un umbral clínico."
+    : "El umbral se presenta en dB HL únicamente con el perfil acústico validado seleccionado.";
   elements.testStatus.textContent = "Reproduce el tono antes de responder.";
   elements.playButton.disabled = false;
   elements.heardButton.disabled = true;
@@ -686,7 +715,9 @@ function recordResponse(heard) {
       ear: currentEar,
       frequency_hz: frequency,
       level_dbfs: currentLevel,
-      level_dbhl: dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile),
+      level_dbhl: sessionUsesUncalibratedWeb
+        ? null
+        : dbHlFromDbfs(currentLevel, frequency, sessionCalibrationProfile),
     });
     nextFrequency();
     return;
@@ -718,9 +749,19 @@ function nextFrequency() {
 
   elements.testPanel.hidden = true;
   elements.resultsPanel.hidden = false;
-  elements.chartCaption.textContent = "Primer umbral percibido · dB HL";
-  elements.resultDisclaimer.textContent =
-    `Perfil acústico: ${sessionCalibrationProfile.name} · ${sessionCalibrationProfile.output_chain}. Registro exploratorio; no sustituye una audiometría clínica.`;
+  if (sessionUsesUncalibratedWeb) {
+    elements.chartCaption.textContent = "Primer nivel percibido · dBFS (sin calibrar)";
+    elements.resultDisclaimer.textContent =
+      "Modo exploratorio sin calibración: los niveles dBFS dependen del dispositivo y no equivalen a dB HL. No es una audiometría clínica ni un diagnóstico. La exportación de PDF requiere un perfil calibrado.";
+    elements.pdfButton.hidden = true;
+    elements.shareButton.hidden = true;
+  } else {
+    elements.chartCaption.textContent = "Primer umbral percibido · dB HL";
+    elements.resultDisclaimer.textContent =
+      `Perfil acústico: ${sessionCalibrationProfile.name} · ${sessionCalibrationProfile.output_chain}. Registro exploratorio; no sustituye una audiometría clínica.`;
+    elements.pdfButton.hidden = false;
+    elements.shareButton.hidden = false;
+  }
   updateResultActionButtons();
   renderChart();
   elements.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -768,8 +809,11 @@ function resetSession() {
   currentLevel = MIN_LEVEL;
   elements.earSelect.value = "left";
   sessionCalibrationProfile = null;
+  sessionUsesUncalibratedWeb = false;
   elements.calibrationProfile.disabled = false;
   elements.calibrationProfile.value = "";
+  elements.allowUncalibratedWeb.disabled = false;
+  elements.allowUncalibratedWeb.checked = false;
   updateCalibrationProfileState();
   sessionPatientName = "";
   sessionPatientAge = null;
@@ -823,13 +867,19 @@ function renderChart() {
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;
-  const y = (level) => plot.top + ((level + 10) / 130) * (plot.bottom - plot.top);
+  const uncalibrated = sessionUsesUncalibratedWeb;
+  const y = uncalibrated
+    ? (level) => plot.top + ((level - MIN_LEVEL) / (MAX_LEVEL - MIN_LEVEL)) * (plot.bottom - plot.top)
+    : (level) => plot.top + ((level + 10) / 130) * (plot.bottom - plot.top);
 
   context.clearRect(0, 0, width, height);
   context.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = "right";
   context.textBaseline = "middle";
-  for (const level of [-10, 0, 20, 40, 60, 80, 100, 120]) {
+  const levelTicks = uncalibrated
+    ? [-60, -50, -40, -30, -20]
+    : [-10, 0, 20, 40, 60, 80, 100, 120];
+  for (const level of levelTicks) {
     const rowY = y(level);
     context.strokeStyle = "#dce4de";
     context.lineWidth = 1;
@@ -866,8 +916,13 @@ function renderChart() {
   const styles = { left: "#d56c50", right: "#237e72" };
   ["left", "right"].forEach((ear) => {
     const points = measurements
-      .filter((item) => item.ear === ear && item.level_dbhl !== null && FREQUENCIES.includes(item.frequency_hz))
-      .map((item) => ({ x: x(item.frequency_hz), y: y(item.level_dbhl) }));
+      .filter((item) => item.ear === ear
+        && (uncalibrated ? item.level_dbfs !== null : item.level_dbhl !== null)
+        && FREQUENCIES.includes(item.frequency_hz))
+      .map((item) => ({
+        x: x(item.frequency_hz),
+        y: y(uncalibrated ? item.level_dbfs : item.level_dbhl),
+      }));
     context.strokeStyle = styles[ear];
     context.lineWidth = 2;
     context.beginPath();
@@ -959,6 +1014,10 @@ async function fetchPdfBlob() {
 }
 
 async function exportPdf() {
+  if (sessionUsesUncalibratedWeb) {
+    showToast("Para exportar el PDF se necesita un perfil acústico calibrado.", 5000);
+    return;
+  }
   elements.pdfButton.disabled = true;
   const originalText = elements.pdfButton.textContent;
   elements.pdfButton.textContent = "Exportando...";
@@ -984,6 +1043,10 @@ async function exportPdf() {
 }
 
 async function shareResults() {
+  if (sessionUsesUncalibratedWeb) {
+    showToast("Para compartir el PDF se necesita un perfil acústico calibrado.", 5000);
+    return;
+  }
   elements.shareButton.disabled = true;
   const originalText = elements.shareButton.textContent;
   elements.shareButton.textContent = "Preparando...";
@@ -1044,6 +1107,10 @@ elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
 elements.calibrationProfile.addEventListener("change", () => {
+  updateCalibrationProfileState();
+  updateSetupState();
+});
+elements.allowUncalibratedWeb.addEventListener("change", () => {
   updateCalibrationProfileState();
   updateSetupState();
 });
@@ -1110,4 +1177,8 @@ window.setInterval(() => {
 
 updateSetupState();
 updateResultActionButtons();
+if (getCalibrationPlatform() === "web") {
+  elements.webUncalibratedOption.hidden = false;
+  elements.calibrationProfileLabel.textContent = "Perfil acústico validado (opcional en web)";
+}
 loadCalibrationProfiles();
