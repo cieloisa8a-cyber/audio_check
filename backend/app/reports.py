@@ -126,49 +126,59 @@ def build_report(payload: ReportRequest) -> bytes:
 
     # Tabla clínica estandarizada de valores en dB HL
     table_top = bottom - 38
-    table_row_h = 14
+    table_row_h = 15
     table_left = 48
-    col_w = (right - left) / (len(FREQUENCIES) - 1)
+    table_right = right
+    data_col_w = (table_right - left) / len(FREQUENCIES)
+    table_bottom = table_top - 3 * table_row_h
+
+    def col_center(index: int) -> float:
+        return left + (index + 0.5) * data_col_w
 
     # Fondo de encabezado de tabla
     pdf.setFillColor(colors.HexColor("#f0f4f2"))
-    pdf.rect(table_left, table_top - table_row_h, right - table_left, table_row_h, fill=1, stroke=0)
+    pdf.rect(table_left, table_top - table_row_h, table_right - table_left, table_row_h, fill=1, stroke=0)
 
+    # Encabezado: Frecuencias
     pdf.setFillColor(colors.HexColor("#142b2a"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 6, table_top - 10, "Frecuencia")
-    for f in FREQUENCIES:
-        pdf.drawCentredString(x_position(f), table_top - 10, f"{f} Hz")
+    pdf.drawString(table_left + 8, table_top - 11, "Frecuencia")
+    for i, f in enumerate(FREQUENCIES):
+        pdf.drawCentredString(col_center(i), table_top - 11, f"{f} Hz")
 
     # Fila Oído Izquierdo
     pdf.setFillColor(colors.HexColor("#dc684c"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 6, table_top - table_row_h - 10, "Oído Izq (dB HL)")
+    pdf.drawString(table_left + 8, table_top - table_row_h - 11, "Oído Izq (dB HL)")
     pdf.setFont("Helvetica", 8)
-    for f in FREQUENCIES:
+    for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("left", f))
         txt = f"{int(round(val))}" if val is not None else "—"
-        pdf.drawCentredString(x_position(f), table_top - table_row_h - 10, txt)
+        pdf.drawCentredString(col_center(i), table_top - table_row_h - 11, txt)
 
     # Fila Oído Derecho
     pdf.setFillColor(colors.HexColor("#237e72"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 6, table_top - table_row_h * 2 - 10, "Oído Der (dB HL)")
+    pdf.drawString(table_left + 8, table_top - table_row_h * 2 - 11, "Oído Der (dB HL)")
     pdf.setFont("Helvetica", 8)
-    for f in FREQUENCIES:
+    for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("right", f))
         txt = f"{int(round(val))}" if val is not None else "—"
-        pdf.drawCentredString(x_position(f), table_top - table_row_h * 2 - 10, txt)
+        pdf.drawCentredString(col_center(i), table_top - table_row_h * 2 - 11, txt)
 
-    # Líneas de contorno de la tabla
+    # Líneas de contorno y cuadrícula de la tabla
     pdf.setStrokeColor(colors.HexColor("#d5dfdb"))
     pdf.setLineWidth(0.5)
     for row_i in range(4):
         y_line = table_top - row_i * table_row_h
-        pdf.line(table_left, y_line, right, y_line)
-    pdf.line(table_left, table_top, table_left, table_top - 3 * table_row_h)
-    pdf.line(left - 15, table_top, left - 15, table_top - 3 * table_row_h)
-    pdf.line(right, table_top, right, table_top - 3 * table_row_h)
+        pdf.line(table_left, y_line, table_right, y_line)
+
+    pdf.line(table_left, table_top, table_left, table_bottom)
+    pdf.line(left, table_top, left, table_bottom)
+    for i in range(1, len(FREQUENCIES)):
+        x_div = left + i * data_col_w
+        pdf.line(x_div, table_top, x_div, table_bottom)
+    pdf.line(table_right, table_top, table_right, table_bottom)
 
     # Notas aclaratorias y pie institucional
     pdf.setFillColor(colors.HexColor("#8a5140"))
