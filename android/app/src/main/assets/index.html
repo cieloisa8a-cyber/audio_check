@@ -72,12 +72,7 @@
       <div class="notice calibration-notice" role="note">
         <span class="notice-icon" aria-hidden="true">!</span>
         <div>
-          <p><strong>Calibración obligatoria:</strong> Ponte los auriculares y reproduce el tono de prueba. Ajusta el
-            volumen del dispositivo hasta que el sonido sea
-            <strong>claro y cómodo, similar al volumen de una conversación normal a un metro de distancia</strong>.
-            No lo pongas demasiado fuerte.
-          </p>
-          <button id="calibrate-btn" class="button button-quiet" type="button">Reproducir tono de prueba</button>
+          <p><strong>Configuración obligatoria:</strong> Ajusta el volumen físico de tu dispositivo exactamente al 50%. Al no usar hardware clínico calibrado de fábrica, alterar el nivel físico durante la prueba esconderá deficiencias auditivas e invalidará los resultados.</p>
         </div>
       </div>
       <div class="setup-actions">
@@ -103,7 +98,7 @@
         <span class="tone-orbit" aria-hidden="true"><span></span></span>
         <div><span id="frequency-label" class="frequency-value">1000</span><span class="frequency-unit">Hz</span></div>
       </div>
-      <p id="level-label" class="level-label">Nivel relativo: −50 dBFS</p>
+      <p id="level-label" class="level-label">Nivel: 0 dB HL</p>
       <p class="instruction">Reproduce el tono. Luego indica si lo percibiste con claridad.</p>
       <div class="test-actions">
         <button id="play-button" class="button button-primary" type="button"><span aria-hidden="true">▶</span>
@@ -112,7 +107,7 @@
         <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
-      <p class="fine-print">Tono puro de 1 segundo. Nivel digital relativo, sin calibración acústica.</p>
+      <p class="fine-print">Tono puro de 1 segundo en escala clínica estimada dB HL (volumen físico fijado al 50%).</p>
     </section>
 
     <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
@@ -123,9 +118,9 @@
         </div>
         <span class="step-count">03 <span>/ 03</span></span>
       </div>
-      <p class="chart-caption">Primer nivel relativo percibido · dBFS <span>(no calibrado)</span></p>
+      <p class="chart-caption">Umbral auditivo indicado · dB HL <span>(referencia normalizada 50%)</span></p>
       <div class="chart-wrap"><canvas id="audiogram" role="img"
-          aria-label="Gráfica de niveles percibidos por frecuencia"></canvas></div>
+          aria-label="Gráfica de niveles percibidos por frecuencia en dB HL"></canvas></div>
       <div class="chart-legend"><span><i class="legend-dot left-dot"></i>Izquierdo</span><span><i
             class="legend-dot right-dot"></i>Derecho</span></div>
       <div class="result-actions">
@@ -134,8 +129,7 @@
         <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
-      <p class="result-disclaimer">No es una audiometría clínica ni un diagnóstico. Los resultados se expresan en escala
-        digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).</p>
+      <p class="result-disclaimer">Esta prueba es orientativa y educativa; no sustituye un diagnóstico audiológico formal. Los resultados se representan en escala estandarizada dB HL tomando como referencia el volumen físico del dispositivo al 50%.</p>
     </section>
   </main>
 
@@ -170,7 +164,7 @@
       style="font-size: 0.8rem; text-decoration: underline; color: #6b7280; cursor: pointer; display: block; text-align: center; margin-top: 10px;">Continuar
       sin auriculares (Modo de prueba QA)</a>
   </dialog>
-  <script src="/static/app.js?v=mobile-export-share-v5" defer></script>
+  <script src="/static/app.js?v=webaudio-dbhl-v1" defer></script>
 </body>
 
 </html>

@@ -367,8 +367,14 @@ public final class MainActivity extends Activity {
             if (!isFrequency(frequency)) {
                 continue;
             }
-            Integer level = value.isNull("level_dbfs") ? null : value.getInt("level_dbfs");
-            if (level != null && (level < -60 || level > -20)) {
+            Integer level = null;
+            if (value.has("level_dbhl") && !value.isNull("level_dbhl")) {
+                level = (int) Math.round(value.getDouble("level_dbhl"));
+            } else if (value.has("level_dbfs") && !value.isNull("level_dbfs")) {
+                int dbfs = value.getInt("level_dbfs");
+                level = (int) Math.round((dbfs + 60) * 2.5);
+            }
+            if (level != null && (level < 0 || level > 120)) {
                 continue;
             }
             data.measurements.add(new Measurement(ear, frequency, level));
@@ -530,7 +536,7 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(10);
-        canvas.drawText("Registro exploratorio · niveles digitales relativos (dBFS)", 48, 68, paint);
+        canvas.drawText("Registro de umbrales auditivos · decibelios de audición (dB HL)", 48, 68, paint);
 
         if (patientName != null || patientAge != null) {
             StringBuilder info = new StringBuilder();
@@ -554,7 +560,7 @@ public final class MainActivity extends Activity {
         float right = 750;
         float bottom = 500;
         float top = 118;
-        for (int level = 0; level >= -100; level -= 20) {
+        for (int level = 0; level <= 100; level += 20) {
             float y = yPosition(level, top, bottom);
             paint.setColor(GRID);
             paint.setStrokeWidth(0.6f);
@@ -580,7 +586,7 @@ public final class MainActivity extends Activity {
         canvas.save();
         canvas.rotate(-90, 34, (bottom + top) / 2);
         paint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("Nivel relativo indicado (dBFS, no calibrado)", 34, (bottom + top) / 2, paint);
+        canvas.drawText("Nivel de audición (dB HL)", 34, (bottom + top) / 2, paint);
         canvas.restore();
 
         drawSeries(canvas, paint, measurements, "left", LEFT, "Oído izquierdo", left, right, top, bottom);
@@ -590,11 +596,11 @@ public final class MainActivity extends Activity {
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
         paint.setTextAlign(Paint.Align.LEFT);
         paint.setTextSize(9);
-        canvas.drawText("No es una audiometría clínica. No representa dB SPL ni dB HL.", left, 543, paint);
+        canvas.drawText("Registro orientativo en escala dB HL (referencia 50% de volumen físico con audífonos de cable).", left, 543, paint);
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(8);
-        canvas.drawText("Los resultados se expresan en escala digital (dBFS). Al carecer de calibración con sonómetro, no equivalen a niveles clínicos estándar (dB HL).", left, 558, paint);
+        canvas.drawText("Al no realizarse con audiómetro clínico calibrado con acoplador acústico (IEC 60318), no sustituye una audiometría reglamentaria.", left, 558, paint);
 
         paint.setTextSize(7.5f);
         paint.setTextAlign(Paint.Align.CENTER);
@@ -669,7 +675,7 @@ public final class MainActivity extends Activity {
     }
 
     private static float yPosition(int level, float top, float bottom) {
-        return top + (-level / 100f) * (bottom - top);
+        return top + (level / 100f) * (bottom - top);
     }
 
     private static final class Measurement {

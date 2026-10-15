@@ -3,6 +3,20 @@ const MIN_LEVEL = -60;
 const MAX_LEVEL = -20;
 const LEVEL_STEP = 5;
 
+// Conversión estandarizada clínica a dB HL (Hearing Level)
+// -60 dBFS (mínimo nivel digital audible) -> 0 dB HL
+// -20 dBFS (máxima ganancia evaluada)    -> 100 dB HL
+function dbfsToDbhl(dbfs) {
+  if (dbfs === null || dbfs === undefined) return null;
+  const hl = (dbfs - MIN_LEVEL) * (100 / (MAX_LEVEL - MIN_LEVEL));
+  return Math.round(hl);
+}
+
+function dbhlToDbfs(dbhl) {
+  if (dbhl === null || dbhl === undefined) return null;
+  return MIN_LEVEL + (dbhl / 100) * (MAX_LEVEL - MIN_LEVEL);
+}
+
 const elements = {
   setup: document.querySelector("#setup"),
   testPanel: document.querySelector("#test-panel"),
@@ -39,7 +53,6 @@ const elements = {
   outputSelectWrap: document.querySelector("#output-select-wrap"),
   outputSelect: document.querySelector("#output-select"),
   confirmDeviceBtn: document.querySelector("#confirm-device-btn"),
-  calibrateBtn: document.getElementById("calibrate-btn"),
   patientName: document.querySelector("#patient-name"),
   patientAge: document.querySelector("#patient-age"),
 };
@@ -508,7 +521,7 @@ function renderCurrentFrequency() {
   elements.testTitle.textContent = currentEar === "left" ? "Oído izquierdo" : "Oído derecho";
   elements.frequencyLabel.textContent = String(frequency);
   elements.frequencyProgress.innerHTML = `${frequencyIndex + 1} <span>/ ${FREQUENCIES.length}</span>`;
-  elements.levelLabel.textContent = `Nivel relativo: ${currentLevel} dBFS`;
+  elements.levelLabel.textContent = `Nivel: ${dbfsToDbhl(currentLevel)} dB HL`;
   elements.testStatus.textContent = "Reproduce el tono antes de responder.";
   elements.playButton.disabled = false;
   elements.heardButton.disabled = true;
@@ -521,7 +534,7 @@ async function playTone() {
   elements.playButton.disabled = true;
   elements.heardButton.disabled = true;
   elements.notHeardButton.disabled = true;
-  elements.testStatus.textContent = "Preparando...";
+  elements.testStatus.textContent = "Tono en reproducción…";
 
   try {
     audioContext ||= new AudioContextClass();
@@ -529,101 +542,67 @@ async function playTone() {
     await applyAudioSink();
 
     const currentPlaybackId = ++playbackId;
-    const delayMs = 1500 + Math.random() * 2500;
+
+    // Generación matemática de onda senoidal pura en tiempo real (Web Audio API - latencia cero)
+    const oscillator = audioContext.createOscillator();
+    activeOscillator = oscillator;
+    const envelope = audioContext.createGain();
+    const startAt = audioContext.currentTime;
+    const amplitude = 10 ** (currentLevel / 20);
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = FREQUENCIES[frequencyIndex];
+
+    // Control dinámico de ganancia con envolvente suave (elimina transientes o chasquidos)
+    envelope.gain.setValueAtTime(0, startAt);
+    envelope.gain.linearRampToValueAtTime(amplitude, startAt + 0.04);
+    envelope.gain.setValueAtTime(amplitude, startAt + 0.88);
+    envelope.gain.linearRampToValueAtTime(0, startAt + 1.0);
+
+    const panValue = currentEar === "left" ? -1 : 1;
+    let finalNode = envelope;
+    if (typeof audioContext.createStereoPanner === "function") {
+      const panner = audioContext.createStereoPanner();
+      panner.pan.setValueAtTime(panValue, startAt);
+      envelope.connect(panner);
+      finalNode = panner;
+    }
+    oscillator.connect(envelope);
+    finalNode.connect(audioContext.destination);
+
+    oscillator.start(startAt);
+    oscillator.stop(startAt + 1.01);
+
+    oscillator.addEventListener("ended", () => {
+      if (activeOscillator === oscillator) activeOscillator = null;
+    }, { once: true });
 
     playbackTimer = window.setTimeout(() => {
       if (currentPlaybackId !== playbackId) return;
-      try {
-        elements.testStatus.textContent = "Tono en reproducción…";
-        const oscillator = audioContext.createOscillator();
-        activeOscillator = oscillator;
-        const envelope = audioContext.createGain();
-        const startAt = audioContext.currentTime;
-        const amplitude = 10 ** (currentLevel / 20);
-
-        oscillator.type = "sine";
-        oscillator.frequency.value = FREQUENCIES[frequencyIndex];
-        envelope.gain.setValueAtTime(0, startAt);
-        envelope.gain.linearRampToValueAtTime(amplitude, startAt + 0.04);
-        envelope.gain.setValueAtTime(amplitude, startAt + 0.88);
-        envelope.gain.linearRampToValueAtTime(0, startAt + 1);
-
-        const panValue = currentEar === "left" ? -1 : 1;
-        let finalNode = envelope;
-        if (typeof audioContext.createStereoPanner === "function") {
-          const panner = audioContext.createStereoPanner();
-          panner.pan.setValueAtTime(panValue, startAt);
-          envelope.connect(panner);
-          finalNode = panner;
-        }
-        oscillator.connect(envelope);
-        finalNode.connect(audioContext.destination);
-        oscillator.start(startAt);
-        oscillator.stop(startAt + 1.01);
-
-        oscillator.addEventListener("ended", () => {
-          if (activeOscillator === oscillator) activeOscillator = null;
-        }, { once: true });
-        playbackTimer = window.setTimeout(() => {
-          if (currentPlaybackId !== playbackId) return;
-          isPlaying = false;
-          activeOscillator = null;
-          elements.heardButton.disabled = false;
-          elements.notHeardButton.disabled = false;
-          elements.playButton.disabled = false;
-          elements.testStatus.textContent = "¿Percibiste el tono con claridad?";
-        }, 1050);
-      } catch {
-        isPlaying = false;
-        elements.playButton.disabled = false;
-        elements.testStatus.textContent = "No se pudo iniciar el audio. Toca Reproducir e inténtalo de nuevo.";
-      }
-    }, delayMs);
-  } catch {
+      isPlaying = false;
+      activeOscillator = null;
+      elements.heardButton.disabled = false;
+      elements.notHeardButton.disabled = false;
+      elements.playButton.disabled = false;
+      elements.testStatus.textContent = "¿Percibiste el tono con claridad?";
+    }, 1050);
+  } catch (error) {
+    console.error("Error al reproducir tono:", error);
     isPlaying = false;
     elements.playButton.disabled = false;
     elements.testStatus.textContent = "No se pudo iniciar el audio. Toca Reproducir e inténtalo de nuevo.";
   }
 }
 
-async function playCalibrationTone() {
-  if (!elements.calibrateBtn || elements.calibrateBtn.disabled) return;
-  const originalText = elements.calibrateBtn.textContent;
-  elements.calibrateBtn.disabled = true;
-  elements.calibrateBtn.textContent = "Reproduciendo...";
-
-  try {
-    audioContext ||= new AudioContextClass();
-    await audioContext.resume();
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    const startAt = audioContext.currentTime;
-    const amplitude = 10 ** (-20 / 20);
-
-    oscillator.type = "sine";
-    oscillator.frequency.value = 1000;
-    gainNode.gain.setValueAtTime(amplitude, startAt);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.start(startAt);
-    oscillator.stop(startAt + 3);
-
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-  } catch (error) {
-    console.error("Error al reproducir el tono de calibración:", error);
-  } finally {
-    elements.calibrateBtn.disabled = false;
-    elements.calibrateBtn.textContent = originalText;
-  }
-}
-
 function recordResponse(heard) {
   if (isPlaying) return;
   if (heard) {
-    measurements.push({ ear: currentEar, frequency_hz: FREQUENCIES[frequencyIndex], level_dbfs: currentLevel });
+    measurements.push({
+      ear: currentEar,
+      frequency_hz: FREQUENCIES[frequencyIndex],
+      level_dbfs: currentLevel,
+      level_dbhl: dbfsToDbhl(currentLevel)
+    });
     nextFrequency();
     return;
   }
@@ -635,7 +614,12 @@ function recordResponse(heard) {
     return;
   }
 
-  measurements.push({ ear: currentEar, frequency_hz: FREQUENCIES[frequencyIndex], level_dbfs: null });
+  measurements.push({
+    ear: currentEar,
+    frequency_hz: FREQUENCIES[frequencyIndex],
+    level_dbfs: null,
+    level_dbhl: null
+  });
   nextFrequency();
 }
 
@@ -739,7 +723,7 @@ function renderChart() {
   const plot = {
     left: width < 360 ? 44 : 54,
     right: width - 24,
-    top: 18 + pointRadius,
+    top: 22 + pointRadius,
     bottom: height - 42 - pointRadius,
   };
   // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
@@ -747,13 +731,21 @@ function renderChart() {
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;
-  const y = (level) => plot.top + (-level / 100) * (plot.bottom - plot.top);
+  // Escala clínica dB HL: 0 dB HL arriba (umbral óptimo), 100 dB HL abajo (pérdida profunda)
+  const y = (levelDbhl) => plot.top + (levelDbhl / 100) * (plot.bottom - plot.top);
 
   context.clearRect(0, 0, width, height);
   context.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   context.textAlign = "right";
   context.textBaseline = "middle";
-  for (let level = 0; level >= -100; level -= 20) {
+
+  // Rótulo del eje vertical en dB HL
+  context.fillStyle = "#142b2a";
+  context.font = `600 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+  context.fillText("dB HL", plot.left - 4, plot.top - 12);
+  context.font = `${fontSize}px ui-sans-serif, system-ui, sans-serif`;
+
+  for (let level = 0; level <= 100; level += 20) {
     const rowY = y(level);
     context.strokeStyle = "#dce4de";
     context.lineWidth = 1;
@@ -790,8 +782,11 @@ function renderChart() {
   const styles = { left: "#d56c50", right: "#237e72" };
   ["left", "right"].forEach((ear) => {
     const points = measurements
-      .filter((item) => item.ear === ear && item.level_dbfs !== null && FREQUENCIES.includes(item.frequency_hz))
-      .map((item) => ({ x: x(item.frequency_hz), y: y(item.level_dbfs) }));
+      .filter((item) => item.ear === ear && (item.level_dbhl != null || item.level_dbfs != null) && FREQUENCIES.includes(item.frequency_hz))
+      .map((item) => {
+        const val = item.level_dbhl != null ? item.level_dbhl : dbfsToDbhl(item.level_dbfs);
+        return { x: x(item.frequency_hz), y: y(val) };
+      });
     context.strokeStyle = styles[ear];
     context.lineWidth = 2;
     context.beginPath();
@@ -995,7 +990,6 @@ elements.heardButton.addEventListener("click", () => recordResponse(true));
 elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
-elements.calibrateBtn?.addEventListener("click", playCalibrationTone);
 elements.otherEarButton?.addEventListener("click", () => {
   goToOtherEar();
 });

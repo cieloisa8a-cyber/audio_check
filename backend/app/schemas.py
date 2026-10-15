@@ -10,6 +10,7 @@ class Measurement(BaseModel):
     ear: Literal["left", "right"]
     frequency_hz: Frequency
     level_dbfs: Optional[int] = Field(default=None, ge=-60, le=-20)
+    level_dbhl: Optional[float] = Field(default=None, ge=0, le=120)
 
 
 class ReportRequest(BaseModel):
