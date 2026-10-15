@@ -577,12 +577,11 @@ function currentFrequency() {
 function resetThresholdSearch() {
   currentLevel = HL_START;
   searchState = {
-    lastHeard: null,      // null = primera presentación de la frecuencia
+    inThresholdSearch: false, // Fase de familiarización según ASHA (2005)
+    lastHeard: null,          // null = primera presentación de la frecuencia
     trials: 0,
-    ascendingTrials: {},  // nivel -> presentaciones ascendentes contadas
-    ascendingHits: {},    // nivel -> respuestas positivas en ascenso
-    floorHits: 0,
-    ceilingMisses: 0,
+    ascendingTrials: {},      // nivel -> presentaciones ascendentes contadas
+    ascendingHits: {},        // nivel -> respuestas positivas en ascenso
   };
 }
 
@@ -681,20 +680,72 @@ function raisedCosineRamp(peak, rising) {
   return curve;
 }
 
-// Hughson-Westlake modificado (ASHA, 2005) con límites clínicos de seguridad (0 a 100 dB HL):
-//  - inicio en 30 dB HL; "sí" -> baja 10 dB; "no" -> sube 5 dB;
-//  - una presentación es ASCENDENTE si sigue a una no-respuesta;
-//  - umbral = nivel con 2 respuestas positivas de (máx.) 3 presentaciones ascendentes.
-//  - Límites de frontera:
-//      * Piso (0 dB HL): si el usuario responde afirmativamente, se deja de restar 10 dB,
-//        se registra inmediatamente el umbral en 0 dB HL y se pasa a la siguiente frecuencia.
-//      * Techo (100 dB HL): si el usuario responde negativamente, no se sube a 105 dB HL;
-//        se registra de inmediato con bandera no_response: true y se pasa a la siguiente.
+// Hughson-Westlake modificado (ASHA, 2005) con Fase de Familiarización estricta:
+//
+// 1. Inicio: Cada frecuencia inicia en 30 dB HL (inThresholdSearch = false).
+// 2. Familiarización (si no escucha):
+//    - Si dice "No" en 30 dB HL, salta inmediatamente a 50 dB HL (no a 35 dB HL).
+//    - Si sigue diciendo "No" en 50 dB HL, sube en pasos de +10 dB (60, 70, 80...) hasta que responda "Sí".
+//    - Si dice "No" en 100 dB HL, se registra no_response: true y pasa a la siguiente.
+// 3. Búsqueda de Umbral:
+//    - En el momento en que da su primer "Sí" (en 30 dB o tras subir), se activa la búsqueda oficial (inThresholdSearch = true).
+//    - A partir de aquí: cada "Sí" baja 10 dB y cada "No" sube 5 dB.
+//    - Criterio de umbral: 2 de 3 respuestas en series ascendentes.
 function recordResponse(heard) {
   if (isPlaying || !searchState || frequencyIndex >= TEST_ORDER.length) return;
   const level = currentLevel;
   const state = searchState;
   state.trials += 1;
+
+  // -------------------------------------------------------------------------
+  // FASE 1: FAMILIARIZACIÓN (ASHA, 2005)
+  // -------------------------------------------------------------------------
+  if (!state.inThresholdSearch) {
+    if (heard) {
+      // Primer "Sí": familiarización completa, se activa búsqueda oficial
+      state.inThresholdSearch = true;
+      state.lastHeard = true;
+
+      // Salvaguarda en piso: si escuchó en 0 dB HL o menos, fijar umbral en 0
+      if (level <= HL_MIN) {
+        finishFrequency(HL_MIN);
+        return;
+      }
+
+      // En la búsqueda oficial, el primer "Sí" baja 10 dB
+      currentLevel = Math.max(HL_MIN, level - STEP_DOWN_DB);
+      renderCurrentFrequency();
+      elements.testStatus.textContent = `Tono reconocido (familiarización completa). El nivel baja ${STEP_DOWN_DB} dB para iniciar la búsqueda de umbral.`;
+      return;
+    }
+
+    // El paciente dijo "No" durante la fase de familiarización:
+    state.lastHeard = false;
+
+    // Si no escucha en 30 dB HL, salta inmediatamente a 50 dB HL
+    if (level <= 30) {
+      currentLevel = 50;
+      renderCurrentFrequency();
+      elements.testStatus.textContent = "Sin respuesta a 30 dB HL: familiarización salta a 50 dB HL. Reproduce el siguiente tono.";
+      return;
+    }
+
+    // Techo alcanzado sin respuesta en familiarización (100 dB HL):
+    if (level >= HL_MAX) {
+      finishFrequency(null);
+      return;
+    }
+
+    // Si sigue sin escuchar en 50 dB HL o superior, sube en pasos de +10 dB
+    currentLevel = Math.min(HL_MAX, level + 10);
+    renderCurrentFrequency();
+    elements.testStatus.textContent = `Sin respuesta: el nivel sube 10 dB en fase de familiarización. Reproduce el siguiente tono.`;
+    return;
+  }
+
+  // -------------------------------------------------------------------------
+  // FASE 2: BÚSQUEDA DE UMBRAL (Hughson-Westlake: -10 dB / +5 dB)
+  // -------------------------------------------------------------------------
 
   // 1. Límite de PISO (0 dB HL): si el usuario responde afirmativamente en 0 dB HL,
   // el algoritmo deja de restar 10 dB, registra inmediatamente 0 dB HL y avanza.
