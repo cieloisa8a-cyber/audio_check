@@ -12,37 +12,37 @@
 
 ## 📌 Descripción general
 
-**Audio Check** es una aplicación diseñada con fines formativos y de investigación psicoacústica para medir la percepción de tonos puros por vía aérea en un rango amplio de frecuencias (250 Hz – 8000 Hz).
+**Audio Check** es una plataforma psicoacústica diseñada para la estimación de umbrales de audición aérea en el rango tonal de **250 Hz a 8000 Hz**, implementando el protocolo psicofísico estandarizado **Hughson-Westlake modificado (ASHA, 2005)**.
 
-La aplicación permite evaluar ambos oídos de forma independiente o consecutiva, trazando un audiograma interactivo en escala digital relativa (**dBFS**) y exportando un reporte clínico referencial en formato **PDF**, con los datos del paciente (nombre y edad).
+La aplicación permite evaluar ambos oídos de forma independiente o consecutiva, trazando un audiograma interactivo en escala **dB HL aproximada** (ref. ANSI S3.6), comparándolo contra la referencia de normalidad por edad (**ISO 7029**) y exportando reportes vectoriales en formato **PDF** con rigor técnico y legal.
 
-> ⚠️ **Aviso importante / Disclaimer:**  
-> Esta herramienta **no sustituye una audiometría clínica profesional** ni genera lecturas en dB HL o dB SPL. Al carecer de calibración con sonómetro y acoplador acústico (oído artificial), los resultados se expresan en escala digital relativa (dBFS) y su propósito es estrictamente académico y orientativo.
+> ⚠️ **Aviso de tamizaje / Nota técnica:**  
+> Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador acústico (oído artificial), existe incertidumbre instrumental de ganancia física ($\sigma \approx \pm 7-10\text{ dB}$; Masalski et al., 2014). Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica realizada en cabina sonoamortiguada.
 
 ---
 
 ## ✨ Características principales
 
-- **Evaluación binaural independiente y bilateral fluida:**
-  - Permite medir el oído izquierdo y derecho por separado o ambos en una misma sesión.
-  - Al culminar un oído, la opción **"Medir el otro oído"** permite saltar directamente a la prueba del oído contralateral sin repetir el formulario de verificación inicial.
-  - Opción de **"Nueva sesión"** para reiniciar limpiamente el proceso y datos del paciente.
-- **Rango de 8 frecuencias normalizadas:**
-  - Frecuencias tonales seleccionadas para tamizaje psicoacústico:
-    $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
-  - Se omiten frecuencias redundantes (125, 750 y 1500 Hz) para una prueba más ágil y precisa.
-- **Audiograma dinámico:**
-  - Trazado en tiempo real en canvas HTML5 con curvas identificadas por colores normativos (rojo: oído izquierdo, verde azulado: oído derecho) y compensación para pantallas Retina y móviles.
+- **Protocolo clínico ASHA (2005) estricto:**
+  - **Fase de familiarización:** Inicio a 30 dB HL. Si no hay respuesta, salta a 50 dB HL y asciende de +10 en +10 dB hasta la primera respuesta afirmativa.
+  - **Búsqueda de umbral (Staircase):** Descenso de 10 dB tras respuesta afirmativa ("Sí oí") y ascenso de 5 dB tras respuesta negativa ("No oí").
+  - **Criterio de umbral:** Determinado formalmente al obtener al menos 2 de 3 respuestas afirmativas en series ascendentes. Piso acústico en $0\text{ dB HL}$ y techo de seguridad en $80\text{ dB HL}$.
+- **Curva de referencia por edad (ISO 7029):**
+  - Trazado comparativo automático en la interfaz y en el reporte PDF según la edad del paciente (1–19 años, 20–39 años, 40–59 años, 60+ años) para visualizar tendencias normativas y presbiacusia.
+- **Botón STOP de aborto inmediato:**
+  - Botón siempre activo durante la reproducción tonal que detiene el oscilador al instante y reinicia la prueba al menú inicial de verificación.
+- **Rango de 8 frecuencias tonales normalizadas:**
+  $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
+  Envolvente de coseno alzado (Hann de 20 ms) para erradicar clics y transitorios de conmutación.
+- **Audiograma dinámico y visualización clínica:**
+  - Trazado de simbología audiométrica estándar (Rojo: Oído Izquierdo $\times$, Verde/Azul: Oído Derecho $\bigcirc$) con compensación para pantallas Retina y móviles.
 - **Exportación en PDF vectorial y Compartir nativo:**
-  - Generación de reportes vectoriales en el backend con **ReportLab**.
-  - En la aplicación móvil, soporte nativo de **guardado en la carpeta Descargas** con notificación en la barra de estado del sistema.
-  - Integración nativa con el menú de compartir de Android (`Intent.ACTION_SEND` mediante `FileProvider`) para enviar el PDF de forma directa a WhatsApp, Telegram, Gmail o Google Drive.
-- **Protección de rigor médico y hardware:**
+  - Generación de reportes clínicos vectoriales con **ReportLab**.
+  - En la aplicación móvil Android: guardado directo en la carpeta pública `Descargas` e integración nativa con el menú de compartir (`Intent.ACTION_SEND` vía `FileProvider`) para WhatsApp, correo, Drive, etc.
+- **Protección de hardware y rigor de prueba:**
   - Detección en tiempo real de audífonos con cable (Jack 3.5 mm / USB-C).
-  - Reinicio automático de seguridad en caso de desconexión durante la prueba con notificación clara del sistema.
-  - **Bloqueo físico de controles de volumen** en la app móvil para evitar alterar la consistencia de los umbrales durante la sesión.
-- **Interfaz adaptativa:**
-  - Formulario de paciente con campos de Nombre y Edad compactos y optimizados para dispositivos móviles.
+  - Pausa/reinicio de seguridad automático ante desconexión física de auriculares.
+  - Instrucción unificada de volumen físico calibrado entre un **20% y 25%** del dispositivo ($C_{ref} = 120\text{ dB}$).
 
 ---
 
@@ -50,11 +50,11 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
 
 | Capa | Tecnologías |
 | :--- | :--- |
-| **Frontend** | HTML5 semántico, CSS3 Vanilla (variables, diseño responsivo adaptativo), JavaScript ES6+ moderno |
-| **Síntesis de Audio** | Web Audio API (`AudioContext`, `OscillatorNode`, `GainNode`, `StereoPannerNode`) |
+| **Frontend** | HTML5 semántico, CSS3 Vanilla responsivo, JavaScript ES6+ moderno |
+| **Síntesis de Audio** | Web Audio API (`AudioContext`, `OscillatorNode`, `GainNode`, `ChannelMergerNode`) |
 | **Backend** | Python 3.9+, FastAPI, Uvicorn, Pydantic, ReportLab |
-| **Móvil (Android)** | Android SDK (minSdk 29, targetSdk 37), Jetpack Compose / WebViewBridge, FileProvider, MediaStore API |
-| **Caché / Offline** | Service Workers, Web App Manifest |
+| **Móvil (Android)** | Android SDK (Java 17, minSdk 29, targetSdk 35/37), WebViewBridge, FileProvider |
+| **Infraestructura** | Vercel (Frontend & Serverless API), GitHub Actions, PWA |
 
 ---
 
@@ -62,26 +62,30 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
 
 ```text
 audio_check/
+├── .github/
+│   ├── CODEOWNERS               # Reglas de protección y revisión de administradores
+│   └── workflows/               # Automatización e integración continua
 ├── backend/
 │   └── app/
-│       ├── main.py          # Endpoints FastAPI y distribución de estáticos
-│       ├── reports.py       # Renderizado del reporte PDF vectorial (ReportLab)
-│       └── schemas.py       # Modelos de validación con Pydantic
+│       ├── main.py              # Endpoints FastAPI y distribución de estáticos
+│       ├── reports.py           # Renderizado del reporte PDF vectorial (ReportLab)
+│       └── schemas.py           # Modelos de validación con Pydantic
 ├── frontend/
-│   ├── index.html           # Interfaz de usuario y flujo de prueba (3 etapas)
+│   ├── index.html               # Interfaz de usuario y flujo de prueba (3 etapas)
 │   └── static/
-│       ├── app.css          # Estilos y diseño responsivo adaptativo
-│       ├── app.js           # Lógica psicoacústica, síntesis, comunicación puente y exportación
-│       ├── sw.js            # Service Worker para capacidades PWA y caché
+│       ├── app.css              # Estilos y diseño responsivo adaptativo
+│       ├── app.js               # Protocolo ASHA 2005, síntesis Web Audio y bridge nativo
+│       ├── sw.js                # Service Worker para capacidades PWA y caché
 │       └── manifest.webmanifest
-├── android/                 # Módulo Android del proyecto
+├── android/                     # Módulo Android nativo
 │   └── app/
+│       ├── src/main/assets/     # Assets web embebidos sincronizados
 │       └── src/main/java/com/audiocheck/app/
-│           ├── MainActivity.java     # Actividad principal
-│           ├── AndroidBridge.java    # Interfaz JavaScript para puente nativo (audio y PDF)
+│           ├── MainActivity.java     # Actividad principal, control de audio y WebView
+│           ├── AndroidBridge.java    # Interfaz JavaScript para puente nativo (PDF/compartir)
 │           └── PdfFileProvider.java  # Proveedor seguro de archivos para compartir PDF
-├── macos/                   # Scripts y LaunchAgent para despliegue local en macOS
-├── requirements.txt         # Dependencias de Python
+├── macos/                       # Scripts y LaunchAgent para despliegue local en macOS
+├── requirements.txt             # Dependencias de Python
 └── README.md
 ```
 
@@ -98,16 +102,16 @@ audio_check/
 Clona el repositorio y sitúate en la raíz del proyecto:
 
 ```bash
-git clone https://github.com/juanitowarrior28/audio_check.git
+git clone https://github.com/cieloisa8a-cyber/audio_check.git
 cd audio_check
 ```
 
 Crea y activa un entorno virtual de Python:
 
-- **En Windows:**
+- **En Windows (PowerShell):**
   ```powershell
   python -m venv .venv
-  .venv\Scripts\activate
+  .venv\Scripts\Activate.ps1
   ```
 
 - **En macOS / Linux:**
@@ -145,31 +149,40 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 
 La aplicación móvil conecta el frontend optimizado con capacidades nativas del sistema operativo:
 
-1. Abre el proyecto en **Android Studio**.
-2. Conecta tu dispositivo Android con la depuración USB activa.
+1. Abre la carpeta `android` en **Android Studio**.
+2. Conecta tu dispositivo Android con la depuración USB activa (o inicia un emulador).
 3. Presiona **Run 'app'** (▶ o `Shift + F10`) para compilar e instalar en el dispositivo.
-4. Funcionalidades integradas:
+4. Funcionalidades nativas:
    - Detección automática del estado de conexión de auriculares alámbricos.
-   - Bloqueo de botones de volumen físico con advertencia médica en pantalla.
-   - Guardado directo de reportes en `Descargas/Audio Check` con notificación del sistema.
-   - Menú de compartir nativo para WhatsApp, Telegram y otras aplicaciones.
+   - Guardado directo de reportes en `Descargas` con notificación del sistema.
+   - Menú de compartir nativo (`Intent.ACTION_SEND`) para WhatsApp, Gmail, Drive, etc.
+   - Icono oficial adaptativo integrado.
 
 ---
 
 ## 📋 Protocolo de la prueba
 
-1. **Datos del paciente:** Ingresa el nombre del paciente y la edad en el formulario inicial.
+1. **Datos del paciente:** Ingresa el nombre y edad en el formulario inicial.
 2. **Entorno y calibración:**
-   - Conecta auriculares con cable (no uses altavoces ni auriculares Bluetooth con compresión).
-   - Sitúate en un entorno silencioso para no enmascarar frecuencias graves.
-   - Realiza la calibración con el tono de prueba de 1000 Hz ajustando el volumen físico del dispositivo a un nivel conversacional cómodo.
-3. **Ejecución:**
-   - Para cada frecuencia, reproduce el tono de 1 segundo.
-   - Indica si lo percibiste claramente o no para avanzar al siguiente escalón de nivel.
+   - Conecta auriculares con cable (no usar altavoces ni auriculares Bluetooth con compresión/latencia).
+   - Ajusta el volumen físico del dispositivo entre el **20% y 25%**.
+   - Sitúate en una habitación silenciosa libre de ruido ambiental.
+3. **Ejecución (Protocolo ASHA 2005):**
+   - Para cada frecuencia, reproduce el tono de prueba.
+   - Responde si lo escuchaste con claridad o no. El algoritmo ajustará automáticamente el nivel según la técnica de ascenso/descenso.
+   - Si necesitas cancelar o reiniciar en cualquier momento, presiona el botón **STOP**.
 4. **Resultados y entrega:**
-   - Visualiza el audiograma resultante.
-   - Pulsa **Medir el otro oído** para evaluar el oído restante de forma inmediata sin repetir los pasos de preparación.
-   - Pulsa **Exportar PDF** para descargar el reporte (`Audiometria_Nombre_Paciente.pdf`) o **Compartir** para enviarlo por mensajería o correo.
+   - Visualiza el audiograma resultante comparado con la referencia ISO 7029 según tu edad.
+   - Pulsa **Medir el otro oído** para evaluar el oído contralateral inmediatamente.
+   - Pulsa **Exportar PDF** para descargar el reporte o **Compartir** para enviarlo directamente.
+
+---
+
+## 🔒 Seguridad y Gobernanza del Código
+
+El repositorio cuenta con configuración de **CODEOWNERS** en [`.github/CODEOWNERS`](file:///.github/CODEOWNERS). Cualquier contribución o modificación en la rama principal (`main`) requiere obligatoriamente:
+- Apertura de un **Pull Request**.
+- Revisión y aprobación explícita del administrador (`@cieloisa8a-cyber`).
 
 ---
 
