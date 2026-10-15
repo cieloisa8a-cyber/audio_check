@@ -116,9 +116,13 @@ let sessionPatientAge = null;
 
 let disconnectRedirectTimer = null;
 let isDisconnectingFromTest = false;
+let toastTimer = null;
 
 function hideToast() {
-  window.clearTimeout(toastTimer);
+  if (typeof toastTimer !== "undefined" && toastTimer) {
+    window.clearTimeout(toastTimer);
+    toastTimer = null;
+  }
   const toast = document.querySelector("#toast-banner");
   if (toast) {
     toast.hidden = true;
@@ -279,8 +283,6 @@ window.setHeadphonesDetected = setHeadphonesDetected;
 window.checkHeadphones = checkHeadphones;
 elements.headphoneDialog.addEventListener("cancel", (event) => event.preventDefault());
 elements.headphoneRetryButton.addEventListener("click", requestHeadphonePermissionAndCheck);
-
-let toastTimer;
 
 function showToast(message, durationMs = 6000) {
   // Mientras el modal esté abierto, no mostrar barrita flotante

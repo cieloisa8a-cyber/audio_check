@@ -30,7 +30,12 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowInsets;
+import android.net.http.SslError;
+import android.webkit.ConsoleMessage;
 import android.webkit.JavascriptInterface;
+import android.webkit.SslErrorHandler;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -85,12 +90,21 @@ public final class MainActivity extends Activity {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(true);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
+        settings.setDatabaseEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
         settings.setSupportMultipleWindows(false);
         WebView.setWebContentsDebuggingEnabled(true);
         webView.addJavascriptInterface(new AndroidBridge(this), "AndroidApp");
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                Log.d("AudioCheckJS", consoleMessage.message() + " ["
+                        + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
+                return true;
+            }
+        });
         webView.setWebViewClient(new LocalAppClient());
         audioDeviceCallback = new AudioDeviceCallback() {
             @Override
@@ -220,16 +234,44 @@ public final class MainActivity extends Activity {
     private final class LocalAppClient extends WebViewClient {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-            Uri uri = request.getUrl();
-            if (!"https".equals(uri.getScheme()) || !APP_HOST.equals(uri.getHost())) {
-                return response(403, "Forbidden", "text/plain", "Blocked");
+            return handleAssetRequest(request.getUrl());
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            return handleAssetRequest(Uri.parse(url));
+        }
+
+        private WebResourceResponse handleAssetRequest(Uri uri) {
+            if (uri == null) return null;
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+
+            if ("https".equalsIgnoreCase(scheme) && APP_HOST.equalsIgnoreCase(host)) {
+                String path = uri.getPath();
+                if (path == null || "/".equals(path) || path.isEmpty()) {
+                    path = "/index.html";
+                }
+                String assetPath = path.startsWith("/") ? path.substring(1) : path;
+                return loadAsset(assetPath);
             }
 
-            String path = uri.getPath();
-            if (path == null || "/".equals(path)) {
-                path = "/index.html";
+            if ("file".equalsIgnoreCase(scheme)) {
+                String path = uri.getPath();
+                if (path != null && path.contains("android_asset")) {
+                    int idx = path.indexOf("android_asset");
+                    String assetPath = path.substring(idx + "android_asset".length());
+                    if (assetPath.startsWith("/")) assetPath = assetPath.substring(1);
+                    if (assetPath.isEmpty()) assetPath = "index.html";
+                    return loadAsset(assetPath);
+                }
             }
-            String assetPath = path.startsWith("/") ? path.substring(1) : path;
+
+            return null;
+        }
+
+        private WebResourceResponse loadAsset(String assetPath) {
             if (assetPath.contains("..") || assetPath.contains("\\") || assetPath.isEmpty()) {
                 return response(404, "Not Found", "text/plain", "Not found");
             }
@@ -238,19 +280,51 @@ public final class MainActivity extends Activity {
                 InputStream stream = getAssets().open(assetPath);
                 Map<String, String> headers = new HashMap<>();
                 headers.put("Cache-Control", "no-store");
+                headers.put("Access-Control-Allow-Origin", "*");
                 return new WebResourceResponse(mimeType(assetPath), "UTF-8", 200, "OK", headers, stream);
             } catch (FileNotFoundException exception) {
+                Log.w("AudioCheck", "Asset no encontrado: " + assetPath);
                 return response(404, "Not Found", "text/plain", "Not found");
             } catch (IOException exception) {
-                Log.e("AudioCheck", "Could not load bundled app asset: " + assetPath, exception);
+                Log.e("AudioCheck", "Error cargando asset: " + assetPath, exception);
                 return response(500, "Internal Server Error", "text/plain", "Could not load app asset");
             }
         }
 
         @Override
+        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+            super.onReceivedError(view, request, error);
+            Log.e("AudioCheck", "Error de WebView: " + error.getDescription() + " en " + request.getUrl());
+            if (request.isForMainFrame()) {
+                view.loadUrl("file:///android_asset/index.html");
+            }
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+            super.onReceivedError(view, errorCode, description, failingUrl);
+            Log.e("AudioCheck", "Error de WebView (" + errorCode + "): " + description + " en " + failingUrl);
+            view.loadUrl("file:///android_asset/index.html");
+        }
+
+        @Override
+        public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+            Log.w("AudioCheck", "SSL error ignorado para asset virtual: " + error);
+            handler.proceed();
+        }
+
+        @Override
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             Uri uri = request.getUrl();
-            return !"https".equals(uri.getScheme()) || !APP_HOST.equals(uri.getHost());
+            return !"https".equalsIgnoreCase(uri.getScheme()) || !APP_HOST.equalsIgnoreCase(uri.getHost());
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+            Uri uri = Uri.parse(url);
+            return !"https".equalsIgnoreCase(uri.getScheme()) || !APP_HOST.equalsIgnoreCase(uri.getHost());
         }
     }
 
