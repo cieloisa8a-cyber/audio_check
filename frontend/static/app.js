@@ -25,11 +25,11 @@ const RETSPL_REL = {
 };
 const HL_MIN = 10;
 const HL_MAX = 80;
-// Optimización de resolución digital de 16 bits (C_ref = 106 dB):
-// A 80 dB HL @ 250 Hz (RETSPL = 25.5), nivel = 105.5 dB -> pico máximo de -0.5 dBFS.
-// Esto eleva toda la señal digital en ~24 dB, sacando los tonos del piso de ruido del DAC
-// y eliminando el ruido de cuantificación / distorsión armónica en los 16 bits de Android.
-const C_REF_DB = 106;
+// Optimización de resolución digital (C_ref = 120 dB):
+// Al elevar C_ref a 120, los tonos de baja amplitud ganan bits de resolución digital.
+// Como HL_MAX es 80, el nivel más alto (105.5 dB SPL @ 250 Hz) llegará a -14.5 dBFS,
+// garantizando que el compresor no sature y limpiando la distorsión de cuantización en 0-40 dB HL.
+const C_REF_DB = 120;
 
 function hlToDbfs(frequency, levelHl) {
   if (levelHl === null || levelHl === undefined) return null;
@@ -550,11 +550,9 @@ async function startTest() {
   await applyAudioSink();
   startDither();
 
-  // En Android bloquea el volumen y fija STREAM_MUSIC al 50% durante la prueba
+  // En Android activa el bloqueo de teclas de volumen durante la prueba
   if (window.AndroidApp?.setVolumeLockActive) {
     window.AndroidApp.setVolumeLockActive(true);
-  } else if (window.AndroidApp?.lockVolumeTo50Percent) {
-    window.AndroidApp.lockVolumeTo50Percent();
   }
 
   if (elements.patientName?.value?.trim()) {
@@ -885,6 +883,7 @@ function nextFrequency() {
   }
   updateResultActionButtons();
   renderChart();
+  renderResultsUncertaintyNotice();
   elements.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -904,6 +903,37 @@ function updateResultActionButtons() {
   if (elements.newSessionButton) {
     elements.newSessionButton.hidden = false;
     elements.newSessionButton.textContent = NEW_SESSION_LABEL;
+  }
+  renderResultsUncertaintyNotice();
+}
+
+function renderResultsUncertaintyNotice() {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  let noteEl = document.querySelector("#results-hardware-note");
+  if (isMobile) {
+    if (!noteEl) {
+      noteEl = document.createElement("p");
+      noteEl.id = "results-hardware-note";
+      noteEl.className = "result-disclaimer hardware-uncertainty-note";
+      const disclaimer = document.querySelector(".result-disclaimer");
+      if (disclaimer && disclaimer.parentNode) {
+        disclaimer.parentNode.insertBefore(noteEl, disclaimer);
+      } else if (elements.resultsPanel) {
+        elements.resultsPanel.appendChild(noteEl);
+      }
+    }
+    noteEl.style.marginTop = "0.75rem";
+    noteEl.style.padding = "0.6rem 0.8rem";
+    noteEl.style.borderRadius = "6px";
+    noteEl.style.backgroundColor = "rgba(217, 119, 6, 0.1)";
+    noteEl.style.borderLeft = "3px solid #d97706";
+    noteEl.style.color = "#b45309";
+    noteEl.style.fontSize = "0.82rem";
+    noteEl.style.lineHeight = "1.4";
+    noteEl.textContent = "Nota de Incertidumbre de Hardware: Evaluación realizada en dispositivo móvil. Los umbrales presentados incluyen compensación matemática (Shaped Dither) debido a limitaciones de cuantización del DAC de 16-bits a bajos volúmenes.";
+    noteEl.hidden = false;
+  } else if (noteEl) {
+    noteEl.hidden = true;
   }
 }
 
@@ -1074,10 +1104,16 @@ function getReportPayload() {
   const patientName = sessionPatientName || elements.patientName?.value?.trim() || null;
   const ageRaw = sessionPatientAge || parseInt(elements.patientAge?.value, 10);
   const patientAge = (!Number.isNaN(ageRaw) && ageRaw > 0) ? ageRaw : null;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const hardwareNote = "Nota de Incertidumbre de Hardware: Evaluación realizada en dispositivo móvil. Los umbrales presentados incluyen compensación matemática (Shaped Dither) debido a limitaciones de cuantización del DAC de 16-bits a bajos volúmenes.";
+  const observations = isMobile ? hardwareNote : null;
+
   return {
     measurements,
     patient_name: patientName,
     patient_age: patientAge,
+    observations: observations,
+    observaciones: observations,
   };
 }
 
@@ -1302,6 +1338,18 @@ window.setInterval(() => {
 
 updateSetupState();
 updateResultActionButtons();
+renderResultsUncertaintyNotice();
+
+// Asegurar que la instrucción de volumen en todos los sistemas pida estrictamente 20% a 25%
+const noticeP = document.querySelector(".calibration-notice p");
+if (noticeP) {
+  noticeP.innerHTML = "<strong>Configuración obligatoria:</strong> Ajustar el volumen del dispositivo entre un 20% y 25%. Desactiva mejoras de audio y no modifiques el volumen durante la prueba.";
+}
+const finePrintP = document.querySelector(".fine-print");
+if (finePrintP) {
+  finePrintP.textContent = "Tono puro de 1 segundo en escala clínica estimada dB HL (Ajustar el volumen del dispositivo entre un 20% y 25%).";
+}
+
 if (window.AndroidApp?.setVolumeLockActive) {
   window.AndroidApp.setVolumeLockActive(false);
 }

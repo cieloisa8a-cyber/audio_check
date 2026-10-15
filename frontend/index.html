@@ -75,8 +75,7 @@
       <div class="notice calibration-notice" role="note">
         <span class="notice-icon" aria-hidden="true">!</span>
         <div>
-          <p><strong>Configuración obligatoria:</strong> Fija el volumen del sistema al 50% en iOS, Android o Mac, o al
-            20%-25% en PC Windows. Desactiva mejoras de audio y no modifiques el volumen durante la prueba.</p>
+          <p><strong>Configuración obligatoria:</strong> Ajustar el volumen del dispositivo entre un 20% y 25%. Desactiva mejoras de audio y no modifiques el volumen durante la prueba.</p>
         </div>
       </div>
       <div class="setup-actions">
@@ -111,7 +110,7 @@
         <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
-      <p class="fine-print">Tono puro de 1 segundo en escala clínica estimada dB HL (volumen físico fijado al 50%).</p>
+      <p class="fine-print">Tono puro de 1 segundo en escala clínica estimada dB HL (Ajustar el volumen del dispositivo entre un 20% y 25%).</p>
     </section>
 
     <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
@@ -133,6 +132,7 @@
         <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
+      <p id="results-hardware-note" class="result-disclaimer hardware-uncertainty-note" hidden></p>
       <p class="result-disclaimer">Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia
         digital controlada. Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈
         ±7-10 dB; Masalski et al., 2014). Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.</p>

@@ -229,7 +229,7 @@ public final class MainActivity extends Activity {
     public void lockVolumeTo50Percent() {
         if (audioManager != null) {
             int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-            int targetVol = Math.round(maxVol * 0.5f);
+            int targetVol = Math.max(1, Math.round(maxVol * 0.22f)); // Rango óptimo 20% - 25%
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0);
         }
     }
@@ -405,7 +405,7 @@ public final class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 ParsedReportData data = parseReportData(json);
-                byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge);
+                byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge, data.observations);
                 String filename = buildPdfFilename(data.patientName);
 
                 if (share) {
@@ -435,6 +435,7 @@ public final class MainActivity extends Activity {
         List<Measurement> measurements = new ArrayList<>();
         String patientName;
         Integer patientAge;
+        String observations;
     }
 
     private ParsedReportData parseReportData(String json) throws Exception {
@@ -450,6 +451,11 @@ public final class MainActivity extends Activity {
             if (obj.has("patient_age") && !obj.isNull("patient_age")) {
                 data.patientAge = obj.optInt("patient_age", -1);
                 if (data.patientAge <= 0) data.patientAge = null;
+            }
+            if (obj.has("observations") && !obj.isNull("observations")) {
+                data.observations = obj.optString("observations", null);
+            } else if (obj.has("observaciones") && !obj.isNull("observaciones")) {
+                data.observations = obj.optString("observaciones", null);
             }
         } else {
             values = new JSONArray(trimmed);
@@ -622,7 +628,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private static byte[] createPdf(List<Measurement> measurements, String patientName, Integer patientAge) throws Exception {
+    private static byte[] createPdf(List<Measurement> measurements, String patientName, Integer patientAge, String observations) throws Exception {
         PdfDocument document = new PdfDocument();
         PdfDocument.Page page = document.startPage(
                 new PdfDocument.PageInfo.Builder(792, 612, 1).create()
@@ -695,16 +701,24 @@ public final class MainActivity extends Activity {
         drawSeries(canvas, paint, measurements, "left", LEFT, "Oído izquierdo", left, right, top, bottom);
         drawSeries(canvas, paint, measurements, "right", RIGHT, "Oído derecho", left, right, top, bottom);
 
+        if (observations != null && !observations.trim().isEmpty()) {
+            paint.setColor(0xffb45309);
+            paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
+            paint.setTextAlign(Paint.Align.LEFT);
+            paint.setTextSize(6.8f);
+            canvas.drawText(observations, left, 532, paint);
+        }
+
         paint.setColor(0xff8a5140);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
         paint.setTextAlign(Paint.Align.LEFT);
         paint.setTextSize(8.2f);
-        canvas.drawText("Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.", left, 542, paint);
+        canvas.drawText("Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.", left, 544, paint);
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(7.5f);
-        canvas.drawText("Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).", left, 555, paint);
-        canvas.drawText("Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.", left, 567, paint);
+        canvas.drawText("Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).", left, 556, paint);
+        canvas.drawText("Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.", left, 568, paint);
 
         paint.setTextSize(7.5f);
         paint.setTextAlign(Paint.Align.CENTER);

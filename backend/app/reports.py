@@ -201,13 +201,36 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.line(table_right, table_top, table_right, table_bottom)
 
     # Notas aclaratorias y pie institucional
-    pdf.setFillColor(colors.HexColor("#8a5140"))
-    pdf.setFont("Helvetica-Bold", 7.8)
-    pdf.drawString(table_left, 66, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
-    pdf.setFillColor(colors.HexColor("#526260"))
-    pdf.setFont("Helvetica", 7.2)
-    pdf.drawString(table_left, 54, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
-    pdf.drawString(table_left, 43, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
+    obs = payload.observations or payload.observaciones
+    if obs:
+        clean_obs = unicodedata.normalize("NFC", obs.strip()).encode("latin-1", "replace").decode("latin-1")
+        pdf.setFillColor(colors.HexColor("#b45309"))
+        pdf.setFont("Helvetica-Bold", 7.0)
+        if len(clean_obs) > 120:
+            split_idx = clean_obs.rfind(" ", 0, 120)
+            if split_idx == -1:
+                split_idx = 120
+            pdf.drawString(table_left, 78, clean_obs[:split_idx])
+            pdf.drawString(table_left, 68, clean_obs[split_idx:].strip())
+            y_text = 57
+        else:
+            pdf.drawString(table_left, 76, clean_obs)
+            y_text = 64
+        pdf.setFillColor(colors.HexColor("#8a5140"))
+        pdf.setFont("Helvetica-Bold", 7.5)
+        pdf.drawString(table_left, y_text, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
+        pdf.setFillColor(colors.HexColor("#526260"))
+        pdf.setFont("Helvetica", 6.8)
+        pdf.drawString(table_left, y_text - 10, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
+        pdf.drawString(table_left, y_text - 19, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
+    else:
+        pdf.setFillColor(colors.HexColor("#8a5140"))
+        pdf.setFont("Helvetica-Bold", 7.8)
+        pdf.drawString(table_left, 66, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
+        pdf.setFillColor(colors.HexColor("#526260"))
+        pdf.setFont("Helvetica", 7.2)
+        pdf.drawString(table_left, 54, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
+        pdf.drawString(table_left, 43, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
 
     pdf.setFillColor(colors.HexColor("#8a0303"))
     pdf.setFont("Helvetica-Bold", 9.5)

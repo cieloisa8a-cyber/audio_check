@@ -18,3 +18,5 @@ class ReportRequest(BaseModel):
     patient_name: Optional[str] = Field(default=None, max_length=100)
     patient_age: Optional[int] = Field(default=None, ge=1, le=120)
     measurements: list[Measurement] = Field(min_length=1, max_length=16)
+    observations: Optional[str] = None
+    observaciones: Optional[str] = None
