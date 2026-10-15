@@ -70,6 +70,9 @@ input[type="text"]:focus, input[type="number"]:focus {
 .button-primary:hover:not(:disabled) { background: #234542; }
 .button-quiet { border-color: var(--line); background: transparent; color: var(--ink); }
 .button-quiet:hover:not(:disabled) { border-color: #9eaea5; background: #f6f8f4; }
+.button-stop { background: var(--coral); color: #fffefa; border-color: var(--coral); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+.button-stop:hover:not(:disabled) { background: #bf593e; border-color: #bf593e; }
+.button-stop:active:not(:disabled) { transform: translateY(1px); }
 .button-text { padding-inline: 4px; background: transparent; color: var(--green); }
 #start-button { margin-left: auto; }
 .support-message { min-height: 18px; margin: 12px 0 0; color: var(--muted); font-size: 12px; }
@@ -248,8 +251,8 @@ dialog#headphone-dialog h2 { margin-bottom: 10px; }
   .workspace { padding: 21px 17px 22px; overflow-wrap: anywhere; }
   .setup-actions { flex-wrap: wrap; }
   #start-button { width: 100%; margin: 4px 0 0; }
-  .test-actions .button { flex: 1 1 42%; }
-  .test-actions .button-primary { flex-basis: 100%; }
+  .test-actions .button { flex: 1 1 calc(33.333% - 8px); min-width: 0; padding: 0 8px; font-size: 13px; }
+  .test-actions .button-primary { flex-basis: 100%; padding: 0 17px; font-size: 14px; }
   .result-actions .button { flex: 1 1 auto; }
   .result-actions .button-text { flex-basis: 100%; justify-content: flex-start; }
   .patient-form { flex-direction: column; gap: 12px; margin: 16px 0 6px; }

@@ -72,6 +72,7 @@ const elements = {
   levelLabel: document.querySelector("#level-label"),
   playButton: document.querySelector("#play-button"),
   heardButton: document.querySelector("#heard-button"),
+  stopButton: document.querySelector("#stop-button"),
   notHeardButton: document.querySelector("#not-heard-button"),
   testStatus: document.querySelector("#test-status"),
   canvas: document.querySelector("#audiogram"),
@@ -943,6 +944,59 @@ async function goToOtherEar() {
   elements.testPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+// Interrumpe inmediatamente el tono en reproducción y reinicia la prueba
+// en el menú inicial de condiciones (checkboxes), tanto en Web como en App.
+function stopTestAndReset() {
+  playbackId += 1;
+  if (playbackTimer) {
+    window.clearTimeout(playbackTimer);
+    playbackTimer = null;
+  }
+  if (activeOscillator) {
+    try {
+      activeOscillator.stop();
+      activeOscillator.disconnect();
+    } catch (e) {
+      console.warn("Error al detener oscilador:", e);
+    }
+    activeOscillator = null;
+  }
+  isPlaying = false;
+
+  if (ditherNode) {
+    try {
+      ditherNode.stop();
+      ditherNode.disconnect();
+    } catch (e) {}
+    ditherNode = null;
+    ditherGain = null;
+  }
+
+  if (window.AndroidApp?.setVolumeLockActive) {
+    window.AndroidApp.setVolumeLockActive(false);
+  }
+
+  measurements.length = 0;
+  frequencyIndex = 0;
+  resetThresholdSearch();
+
+  [elements.wiredCheck, elements.volumeCheck, elements.silenceCheck, elements.volumeLockCheck].forEach((cb) => {
+    if (cb) cb.checked = false;
+  });
+
+  elements.testPanel.hidden = true;
+  elements.resultsPanel.hidden = true;
+  elements.setup.hidden = false;
+
+  updateSetupState();
+  if (elements.audioSupport) {
+    elements.audioSupport.textContent = "Prueba interrumpida. Confirma las condiciones obligatorias para reiniciar.";
+  }
+  showToast("Prueba detenida", 2500);
+
+  elements.setup.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // Reinicia la sesión para un nuevo paciente. Se conserva el AudioContext ya
 // desbloqueado (iOS) y el estado de detección de auriculares.
 function resetSession() {
@@ -1272,6 +1326,7 @@ elements.patientAge?.addEventListener("keydown", (e) => {
 elements.startButton.addEventListener("click", startTest);
 elements.playButton.addEventListener("click", playTone);
 elements.heardButton.addEventListener("click", () => recordResponse(true));
+elements.stopButton?.addEventListener("click", stopTestAndReset);
 elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
