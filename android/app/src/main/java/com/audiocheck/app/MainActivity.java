@@ -402,18 +402,38 @@ public final class MainActivity extends Activity {
     }
 
     public void exportPdf(String json, boolean share) {
+        handlePdfBase64(json, "Audiometria.pdf", share);
+    }
+
+    public void handlePdfBase64(String base64OrJson, String filename, boolean share) {
         new Thread(() -> {
             try {
-                ParsedReportData data = parseReportData(json);
-                byte[] pdf = createPdf(data.measurements, data.patientName, data.patientAge, data.observations);
-                String filename = buildPdfFilename(data.patientName);
+                String cleanFilename = (filename == null || filename.trim().isEmpty() || "false".equalsIgnoreCase(filename) || "true".equalsIgnoreCase(filename))
+                        ? "Audiometria.pdf"
+                        : (filename.toLowerCase(Locale.ROOT).endsWith(".pdf") ? filename : filename + ".pdf");
+
+                byte[] pdfBytes;
+                String trimmed = base64OrJson != null ? base64OrJson.trim() : "";
+                if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                    ParsedReportData data = parseReportData(trimmed);
+                    pdfBytes = createPdf(data.measurements, data.patientName, data.patientAge, data.observations);
+                    if (data.patientName != null && !data.patientName.trim().isEmpty()) {
+                        cleanFilename = buildPdfFilename(data.patientName);
+                    }
+                } else {
+                    String cleanBase64 = base64OrJson.contains(",") ? base64OrJson.substring(base64OrJson.indexOf(",") + 1) : base64OrJson;
+                    pdfBytes = android.util.Base64.decode(cleanBase64, android.util.Base64.DEFAULT);
+                }
+
+                final String finalFilename = cleanFilename;
+                final byte[] finalPdf = pdfBytes;
 
                 if (share) {
-                    mainHandler.post(() -> MainActivity.this.sharePdf(pdf, filename));
+                    mainHandler.post(() -> MainActivity.this.sharePdf(finalPdf, finalFilename));
                 } else {
-                    savePdfToDownloads(pdf, filename);
+                    savePdfToDownloads(finalPdf, finalFilename);
                     mainHandler.post(() -> {
-                        postDownloadNotification(filename, pdf);
+                        postDownloadNotification(finalFilename, finalPdf);
                         Toast.makeText(
                                 MainActivity.this,
                                 "PDF guardado en Descargas/Audio Check",
@@ -422,13 +442,13 @@ public final class MainActivity extends Activity {
                     });
                 }
             } catch (Exception exception) {
-                Log.e("AudioCheck", "Error en exportPdf: " + exception.getMessage(), exception);
+                Log.e("AudioCheck", "Error en handlePdfBase64: " + exception.getMessage(), exception);
                 String message = exception.getMessage() == null
                         ? "No se pudo generar el PDF."
                         : "No se pudo generar el PDF: " + exception.getMessage();
                 mainHandler.post(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
             }
-        }, "audio-check-pdf").start();
+        }, "audio-check-base64-pdf").start();
     }
 
     public static class ParsedReportData {

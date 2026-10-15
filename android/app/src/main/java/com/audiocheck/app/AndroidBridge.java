@@ -46,6 +46,27 @@ public class AndroidBridge {
     }
 
     @JavascriptInterface
+    public void savePdfBase64(String base64Data, String filename, boolean share) {
+        if (activity != null) {
+            activity.handlePdfBase64(base64Data, filename, share);
+        }
+    }
+
+    @JavascriptInterface
+    public void exportPdf(String base64OrJson, String filename) {
+        if (activity != null) {
+            activity.handlePdfBase64(base64OrJson, filename, false);
+        }
+    }
+
+    @JavascriptInterface
+    public void sharePdf(String base64OrJson, String filename) {
+        if (activity != null) {
+            activity.handlePdfBase64(base64OrJson, filename, true);
+        }
+    }
+
+    @JavascriptInterface
     public void exportPdf(String json, boolean share) {
         if (activity != null) {
             activity.exportPdf(json, share);

@@ -1315,11 +1315,30 @@ async function exportPdf() {
   elements.pdfButton.textContent = "Exportando...";
   try {
     const filename = getReportFilename();
-    const payloadJson = JSON.stringify(getReportPayload());
 
-    if (window.AndroidApp?.exportPdf) {
+    if (window.AndroidApp) {
       showToast("Descargando reporte PDF...", 3000);
-      window.AndroidApp.exportPdf(payloadJson, false);
+      try {
+        const blob = await fetchPdfBlob();
+        const base64 = await blobToBase64(blob);
+
+        if (typeof window.AndroidApp.savePdfBase64 === "function") {
+          window.AndroidApp.savePdfBase64(base64, filename, false);
+          return;
+        }
+        if (typeof window.AndroidApp.exportPdf === "function") {
+          window.AndroidApp.exportPdf(base64, filename);
+          return;
+        }
+      } catch (fetchErr) {
+        console.warn("fetchPdfBlob falló en Android, intentando método nativo:", fetchErr);
+        const payloadJson = JSON.stringify(getReportPayload());
+        if (typeof window.AndroidApp.exportPdf === "function") {
+          window.AndroidApp.exportPdf(payloadJson, filename);
+          return;
+        }
+        throw fetchErr;
+      }
       return;
     }
 
@@ -1342,10 +1361,29 @@ async function shareResults() {
   elements.shareButton.textContent = "Preparando...";
   try {
     const filename = getReportFilename();
-    const payloadJson = JSON.stringify(getReportPayload());
 
-    if (window.AndroidApp?.sharePdf) {
-      window.AndroidApp.sharePdf(payloadJson);
+    if (window.AndroidApp) {
+      try {
+        const blob = await fetchPdfBlob();
+        const base64 = await blobToBase64(blob);
+
+        if (typeof window.AndroidApp.savePdfBase64 === "function") {
+          window.AndroidApp.savePdfBase64(base64, filename, true);
+          return;
+        }
+        if (typeof window.AndroidApp.sharePdf === "function") {
+          window.AndroidApp.sharePdf(base64, filename);
+          return;
+        }
+      } catch (fetchErr) {
+        console.warn("fetchPdfBlob falló en Android, intentando método nativo:", fetchErr);
+        const payloadJson = JSON.stringify(getReportPayload());
+        if (typeof window.AndroidApp.sharePdf === "function") {
+          window.AndroidApp.sharePdf(payloadJson, filename);
+          return;
+        }
+        throw fetchErr;
+      }
       return;
     }
 
