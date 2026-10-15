@@ -563,7 +563,7 @@ async function startTest() {
 }
 
 function currentFrequency() {
-  return TEST_ORDER[frequencyIndex];
+  return TEST_ORDER[Math.min(frequencyIndex, TEST_ORDER.length - 1)];
 }
 
 function resetThresholdSearch() {
@@ -579,6 +579,7 @@ function resetThresholdSearch() {
 }
 
 function renderCurrentFrequency() {
+  if (frequencyIndex >= TEST_ORDER.length) return;
   const frequency = currentFrequency();
   elements.testTitle.textContent = currentEar === "left" ? "Oído izquierdo" : "Oído derecho";
   elements.frequencyLabel.textContent = String(frequency);
@@ -591,7 +592,7 @@ function renderCurrentFrequency() {
 }
 
 async function playTone() {
-  if (isPlaying) return;
+  if (isPlaying || frequencyIndex >= TEST_ORDER.length) return;
   isPlaying = true;
   elements.playButton.disabled = true;
   elements.heardButton.disabled = true;
@@ -672,16 +673,36 @@ function raisedCosineRamp(peak, rising) {
   return curve;
 }
 
-// Hughson-Westlake modificado (ASHA, 2005):
+// Hughson-Westlake modificado (ASHA, 2005) con límites clínicos de seguridad (0 a 100 dB HL):
 //  - inicio en 30 dB HL; "sí" -> baja 10 dB; "no" -> sube 5 dB;
 //  - una presentación es ASCENDENTE si sigue a una no-respuesta;
 //  - umbral = nivel con 2 respuestas positivas de (máx.) 3 presentaciones ascendentes.
+//  - Límites de frontera:
+//      * Piso (0 dB HL): si el usuario responde afirmativamente, se deja de restar 10 dB,
+//        se registra inmediatamente el umbral en 0 dB HL y se pasa a la siguiente frecuencia.
+//      * Techo (100 dB HL): si el usuario responde negativamente, no se sube a 105 dB HL;
+//        se registra de inmediato con bandera no_response: true y se pasa a la siguiente.
 function recordResponse(heard) {
-  if (isPlaying || !searchState) return;
+  if (isPlaying || !searchState || frequencyIndex >= TEST_ORDER.length) return;
   const level = currentLevel;
   const state = searchState;
   state.trials += 1;
 
+  // 1. Límite de PISO (0 dB HL): si el usuario responde afirmativamente en 0 dB HL,
+  // el algoritmo deja de restar 10 dB, registra inmediatamente 0 dB HL y avanza.
+  if (heard && level <= HL_MIN) {
+    finishFrequency(HL_MIN);
+    return;
+  }
+
+  // 2. Límite de TECHO (100 dB HL): si el usuario está en el tope máximo y responde "No",
+  // no debe intentar subir a 105 dB HL; registra no_response: true y avanza.
+  if (!heard && level >= HL_MAX) {
+    finishFrequency(null);
+    return;
+  }
+
+  // 3. Fase ascendente (sigue a una no-respuesta): umbral si alcanza 2 respuestas positivas de 3
   if (state.lastHeard === false) {
     if (!state.ascendingTrials[level] || state.ascendingTrials[level] >= ASCENDING_WINDOW) {
       state.ascendingTrials[level] = 1;
@@ -696,25 +717,10 @@ function recordResponse(heard) {
     }
   }
 
+  // 4. Modificación de nivel según respuesta con clampeo estricto
   if (heard) {
-    // Suelo de la escala (0 dB HL): dos respuestas positivas fijan el umbral en 0.
-    if (level <= HL_MIN) {
-      state.floorHits += 1;
-      if (state.floorHits >= ASCENDING_HITS_REQUIRED) {
-        finishFrequency(HL_MIN);
-        return;
-      }
-    }
     currentLevel = Math.max(HL_MIN, level - STEP_DOWN_DB);
   } else {
-    // Techo de la escala (100 dB HL): dos no-respuestas -> NR (sin respuesta).
-    if (level >= HL_MAX) {
-      state.ceilingMisses += 1;
-      if (state.ceilingMisses >= ASCENDING_HITS_REQUIRED) {
-        finishFrequency(null);
-        return;
-      }
-    }
     currentLevel = Math.min(HL_MAX, level + STEP_UP_DB);
   }
   state.lastHeard = heard;
@@ -734,6 +740,7 @@ function recordResponse(heard) {
 }
 
 function finishFrequency(thresholdHl) {
+  if (frequencyIndex >= TEST_ORDER.length) return;
   const frequency = currentFrequency();
   const noResponse = thresholdHl === null;
   measurements.push({
