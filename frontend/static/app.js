@@ -42,6 +42,58 @@ function dbfsToHl(frequency, dbfs) {
 }
 
 // ---------------------------------------------------------------------------
+// Perfiles de referencia de audición ideal por edad (ISO 7029)
+// Umbrales esperados en dB HL para [250, 500, 1000, 2000, 3000, 4000, 6000, 8000] Hz:
+// - 1 a 19 años:  [0, 0, 0, 0, 0, 0, 0, 0] dB HL (Referencia joven/ideal)
+// - 20 a 39 años: [5, 5, 5, 5, 5, 5, 5, 10] dB HL
+// - 40 a 59 años: [5, 5, 5, 10, 10, 15, 20, 25] dB HL (Presbiacusia leve/frecuencias altas)
+// - 60 años o más: [10, 10, 10, 15, 25, 30, 45, 50] dB HL (Envejecimiento auditivo estándar)
+// ---------------------------------------------------------------------------
+const ISO_7029_PROFILES = {
+  joven: {
+    rangoNombre: "1-19 años",
+    label: "Referencia por edad (1-19 años)",
+    curva: [0, 0, 0, 0, 0, 0, 0, 0],
+  },
+  adultoJoven: {
+    rangoNombre: "20-39 años",
+    label: "Referencia por edad (20-39 años)",
+    curva: [5, 5, 5, 5, 5, 5, 5, 10],
+  },
+  adultoMedio: {
+    rangoNombre: "40-59 años",
+    label: "Referencia por edad (40-59 años)",
+    curva: [5, 5, 5, 10, 10, 15, 20, 25],
+  },
+  adultoMayor: {
+    rangoNombre: "60+ años",
+    label: "Referencia por edad (60+ años)",
+    curva: [10, 10, 10, 15, 25, 30, 45, 50],
+  },
+};
+
+function obtenerReferenciaPorEdad(edad) {
+  const num = typeof edad === "number" ? edad : parseInt(edad, 10);
+  let profile = ISO_7029_PROFILES.adultoJoven;
+  if (!Number.isNaN(num) && num >= 1 && num <= 19) {
+    profile = ISO_7029_PROFILES.joven;
+  } else if (!Number.isNaN(num) && num >= 20 && num <= 39) {
+    profile = ISO_7029_PROFILES.adultoJoven;
+  } else if (!Number.isNaN(num) && num >= 40 && num <= 59) {
+    profile = ISO_7029_PROFILES.adultoMedio;
+  } else if (!Number.isNaN(num) && num >= 60) {
+    profile = ISO_7029_PROFILES.adultoMayor;
+  }
+
+  const result = [...profile.curva];
+  result.curva = profile.curva;
+  result.data = profile.curva;
+  result.rangoNombre = profile.rangoNombre;
+  result.label = profile.label;
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Búsqueda de umbral: Hughson-Westlake modificado (ASHA, 2005)
 // ---------------------------------------------------------------------------
 const HL_START = 30;
@@ -1093,6 +1145,46 @@ function renderChart() {
     context.fillStyle = "#687671";
     const labelY = plot.bottom + 12 + (staggerLabels && index % 2 === 1 ? fontSize + 2 : 0);
     context.fillText(labels[index], columnX, labelY);
+  });
+
+  // Curva de referencia de audición ideal por edad (ISO 7029)
+  const ageRaw = sessionPatientAge || parseInt(elements.patientAge?.value, 10);
+  const patientAge = (!Number.isNaN(ageRaw) && ageRaw > 0) ? ageRaw : null;
+  const curvaReferencia = obtenerReferenciaPorEdad(patientAge);
+  const rangoNombre = curvaReferencia.rangoNombre;
+  const refLabel = `Referencia por edad (${rangoNombre})`;
+
+  const legendRefLabel = document.querySelector("#legend-ref-label");
+  if (legendRefLabel) {
+    legendRefLabel.textContent = refLabel;
+  }
+
+  const refColor = "#6B1D2F";
+  const refPoints = FREQUENCIES.map((freq, idx) => ({
+    x: x(freq),
+    y: y(curvaReferencia[idx]),
+  }));
+
+  context.save();
+  context.setLineDash([5, 5]);
+  context.strokeStyle = refColor;
+  context.lineWidth = 1.8;
+  context.beginPath();
+  refPoints.forEach((point, index) => {
+    if (index === 0) context.moveTo(point.x, point.y);
+    else context.lineTo(point.x, point.y);
+  });
+  context.stroke();
+  context.restore();
+
+  refPoints.forEach((point) => {
+    context.fillStyle = refColor;
+    context.beginPath();
+    context.arc(point.x, point.y, 3, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "#fff";
+    context.lineWidth = 1.5;
+    context.stroke();
   });
 
   const styles = { left: "#d56c50", right: "#237e72" };

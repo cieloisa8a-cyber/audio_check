@@ -127,8 +127,17 @@
       <p class="chart-caption">Umbral auditivo estimado · dB HL <span>(Compensación RETSPL relativa)</span></p>
       <div class="chart-wrap"><canvas id="audiogram" role="img"
           aria-label="Gráfica de niveles percibidos por frecuencia en dB HL"></canvas></div>
-      <div class="chart-legend"><span><i class="legend-dot left-dot"></i>Izquierdo</span><span><i
-            class="legend-dot right-dot"></i>Derecho</span></div>
+      <div class="chart-legend">
+        <span><i class="legend-dot left-dot"></i>Izquierdo</span>
+        <span><i class="legend-dot right-dot"></i>Derecho</span>
+        <span class="legend-ref-item">
+          <span class="legend-ref-symbol" aria-hidden="true">
+            <i class="legend-dot ref-dot"></i>
+            <span class="ref-dash"></span>
+          </span>
+          <span id="legend-ref-label">Referencia por edad (20-39 años)</span>
+        </span>
+      </div>
       <div class="result-actions">
         <button id="pdf-button" class="button button-primary" type="button">Exportar PDF</button>
         <button id="share-button" class="button button-quiet" type="button">Compartir</button>

@@ -26,6 +26,18 @@ def get_level_dbhl(item: Measurement) -> Optional[float]:
     return None
 
 
+def get_iso_7029_reference(age: Optional[int]) -> tuple[str, list[float]]:
+    if age is None or age < 1:
+        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
+    if 1 <= age <= 19:
+        return "1-19 años", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    if 20 <= age <= 39:
+        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
+    if 40 <= age <= 59:
+        return "40-59 años", [5.0, 5.0, 5.0, 10.0, 10.0, 15.0, 20.0, 25.0]
+    return "60+ años", [10.0, 10.0, 10.0, 15.0, 25.0, 30.0, 45.0, 50.0]
+
+
 def build_report(payload: ReportRequest) -> bytes:
     output = BytesIO()
     page_width, page_height = landscape(letter)
@@ -98,6 +110,26 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.drawCentredString(0, 0, "Nivel de audición (dB HL)")
     pdf.restoreState()
 
+    # Trazo de curva de referencia ideal por edad (ISO 7029)
+    rango_nombre, curva_ref = get_iso_7029_reference(payload.patient_age)
+    ref_points = [
+        (x_position(frequency), y_position(level))
+        for frequency, level in zip(FREQUENCIES, curva_ref)
+    ]
+    ref_color = colors.HexColor("#6B1D2F")
+    pdf.setStrokeColor(ref_color)
+    pdf.setLineWidth(1.6)
+    pdf.setDash(4, 3)
+    for first, second in zip(ref_points, ref_points[1:]):
+        pdf.line(first[0], first[1], second[0], second[1])
+    pdf.setDash()
+
+    pdf.setFillColor(ref_color)
+    pdf.setStrokeColor(colors.white)
+    pdf.setLineWidth(1.0)
+    for px, py in ref_points:
+        pdf.circle(px, py, 2.5, stroke=1, fill=1)
+
     # Trazo de series (Oído izquierdo y Oído derecho)
     series = (("left", colors.HexColor("#dc684c"), "Oído izquierdo"),
               ("right", colors.HexColor("#237e72"), "Oído derecho"))
@@ -135,12 +167,33 @@ def build_report(payload: ReportRequest) -> bytes:
                 p.close()
                 pdf.drawPath(p, fill=1, stroke=0)
 
-        legend_x = right - 145 if ear == "left" else right - 55
-        pdf.setFillColor(color)
-        pdf.circle(legend_x, page_height - 70, 3, stroke=0, fill=1)
-        pdf.setFillColor(colors.HexColor("#526260"))
-        pdf.setFont("Helvetica", 8)
-        pdf.drawString(legend_x + 8, page_height - 73, label)
+    # Leyenda: Oído izquierdo, Oído derecho y Referencia por edad
+    leg_left_x = right - 325
+    pdf.setFillColor(colors.HexColor("#dc684c"))
+    pdf.circle(leg_left_x, page_height - 70, 3.5, stroke=0, fill=1)
+    pdf.setFillColor(colors.HexColor("#526260"))
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(leg_left_x + 8, page_height - 73, "Oído izquierdo")
+
+    leg_right_x = right - 240
+    pdf.setFillColor(colors.HexColor("#237e72"))
+    pdf.circle(leg_right_x, page_height - 70, 3.5, stroke=0, fill=1)
+    pdf.setFillColor(colors.HexColor("#526260"))
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(leg_right_x + 8, page_height - 73, "Oído derecho")
+
+    leg_ref_x = right - 155
+    ref_label = f"Referencia por edad ({rango_nombre})"
+    pdf.setStrokeColor(ref_color)
+    pdf.setLineWidth(1.4)
+    pdf.setDash(3, 2)
+    pdf.line(leg_ref_x - 12, page_height - 70, leg_ref_x + 6, page_height - 70)
+    pdf.setDash()
+    pdf.setFillColor(ref_color)
+    pdf.circle(leg_ref_x - 3, page_height - 70, 2.5, stroke=0, fill=1)
+    pdf.setFillColor(colors.HexColor("#526260"))
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(leg_ref_x + 10, page_height - 73, ref_label)
 
     # Tabla clínica estandarizada de valores en dB HL
     table_top = bottom - 34

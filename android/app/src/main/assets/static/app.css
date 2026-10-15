@@ -92,11 +92,14 @@ input[type="text"]:focus, input[type="number"]:focus {
 .chart-caption span { color: var(--muted); font-size: 12px; font-weight: 400; }
 .chart-wrap { width: 100%; height: clamp(250px, 42vw, 360px); overflow: visible; }
 #audiogram { display: block; width: 100%; height: 100%; }
-.chart-legend { display: flex; justify-content: flex-end; gap: 18px; color: var(--muted); font-size: 12px; }
+.chart-legend { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 18px; color: var(--muted); font-size: 12px; }
 .chart-legend span { display: flex; align-items: center; gap: 7px; }
 .legend-dot { width: 9px; aspect-ratio: 1; border-radius: 50%; }
 .left-dot { background: var(--coral); }
 .right-dot { background: var(--green); }
+.ref-dot { width: 7px; height: 7px; background: #6B1D2F; flex-shrink: 0; }
+.ref-dash { display: inline-block; width: 12px; height: 0; border-top: 2px dashed #6B1D2F; }
+.legend-ref-symbol { display: inline-flex; align-items: center; gap: 4px; }
 .result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 23px; padding-top: 20px; border-top: 1px solid var(--line); }
 .result-disclaimer-box { margin: 20px 0 0; padding: 14px 18px; background: #f8faf9; border-left: 3px solid var(--coral); border-radius: 4px; }
 .result-disclaimer { margin: 0; color: #3d4d48; font-size: 13.5px; line-height: 1.6; }

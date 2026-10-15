@@ -698,8 +698,72 @@ public final class MainActivity extends Activity {
         canvas.drawText("Nivel de audición (dB HL)", 34, (bottom + top) / 2, paint);
         canvas.restore();
 
-        drawSeries(canvas, paint, measurements, "left", LEFT, "Oído izquierdo", left, right, top, bottom);
-        drawSeries(canvas, paint, measurements, "right", RIGHT, "Oído derecho", left, right, top, bottom);
+        // Trazo de curva de referencia ideal por edad (ISO 7029)
+        int[] isoCurve = getIso7029Curve(patientAge);
+        String rangoNombre = getIso7029RangeName(patientAge);
+        String refLabel = "Referencia por edad (" + rangoNombre + ")";
+
+        Paint refPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        refPaint.setColor(0xff6b1d2f);
+        refPaint.setStrokeWidth(1.6f);
+        refPaint.setStyle(Paint.Style.STROKE);
+        refPaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{8f, 6f}, 0));
+
+        android.graphics.Path refPath = new android.graphics.Path();
+        for (int i = 0; i < FREQUENCIES.length; i++) {
+            float x = xPosition(FREQUENCIES[i], left, right);
+            float y = yPosition(isoCurve[i], top, bottom);
+            if (i == 0) {
+                refPath.moveTo(x, y);
+            } else {
+                refPath.lineTo(x, y);
+            }
+        }
+        canvas.drawPath(refPath, refPaint);
+
+        refPaint.setPathEffect(null);
+        refPaint.setStyle(Paint.Style.FILL);
+        for (int i = 0; i < FREQUENCIES.length; i++) {
+            float x = xPosition(FREQUENCIES[i], left, right);
+            float y = yPosition(isoCurve[i], top, bottom);
+            canvas.drawCircle(x, y, 2.5f, refPaint);
+        }
+
+        drawSeries(canvas, paint, measurements, "left", LEFT, left, right, top, bottom);
+        drawSeries(canvas, paint, measurements, "right", RIGHT, left, right, top, bottom);
+
+        // Leyenda: Oído izquierdo, Oído derecho y Referencia por edad
+        float legLeftX = right - 325;
+        paint.setColor(LEFT);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(legLeftX, 73, 3.5f, paint);
+        paint.setColor(MUTED);
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(8);
+        canvas.drawText("Oído izquierdo", legLeftX + 8, 76, paint);
+
+        float legRightX = right - 240;
+        paint.setColor(RIGHT);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(legRightX, 73, 3.5f, paint);
+        paint.setColor(MUTED);
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(8);
+        canvas.drawText("Oído derecho", legRightX + 8, 76, paint);
+
+        float legRefX = right - 155;
+        paint.setColor(0xff6b1d2f);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(1.4f);
+        paint.setPathEffect(new android.graphics.DashPathEffect(new float[]{5f, 4f}, 0));
+        canvas.drawLine(legRefX - 12, 73, legRefX + 6, 73, paint);
+        paint.setPathEffect(null);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawCircle(legRefX - 3, 73, 2.5f, paint);
+        paint.setColor(MUTED);
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(8);
+        canvas.drawText(refLabel, legRefX + 10, 76, paint);
 
         // Marco y Nota técnica ampliada para óptima legibilidad
         paint.setColor(0xfff8faf9);
@@ -741,13 +805,40 @@ public final class MainActivity extends Activity {
         return output.toByteArray();
     }
 
+    private static int[] getIso7029Curve(Integer age) {
+        if (age == null || age < 1) {
+            return new int[]{5, 5, 5, 5, 5, 5, 5, 10};
+        } else if (age <= 19) {
+            return new int[]{0, 0, 0, 0, 0, 0, 0, 0};
+        } else if (age <= 39) {
+            return new int[]{5, 5, 5, 5, 5, 5, 5, 10};
+        } else if (age <= 59) {
+            return new int[]{5, 5, 5, 10, 10, 15, 20, 25};
+        } else {
+            return new int[]{10, 10, 10, 15, 25, 30, 45, 50};
+        }
+    }
+
+    private static String getIso7029RangeName(Integer age) {
+        if (age == null || age < 1) {
+            return "20-39 años";
+        } else if (age <= 19) {
+            return "1-19 años";
+        } else if (age <= 39) {
+            return "20-39 años";
+        } else if (age <= 59) {
+            return "40-59 años";
+        } else {
+            return "60+ años";
+        }
+    }
+
     private static void drawSeries(
             Canvas canvas,
             Paint paint,
             List<Measurement> measurements,
             String ear,
             int color,
-            String label,
             float left,
             float right,
             float top,
@@ -796,13 +887,6 @@ public final class MainActivity extends Activity {
                 canvas.drawPath(path, paint);
             }
         }
-
-        float legendX = "left".equals(ear) ? right - 145 : right - 55;
-        canvas.drawCircle(legendX, 73, 3, paint);
-        paint.setColor(MUTED);
-        paint.setTextAlign(Paint.Align.LEFT);
-        paint.setTextSize(8);
-        canvas.drawText(label, legendX + 8, 76, paint);
     }
 
     // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice, igual que reports.py.
