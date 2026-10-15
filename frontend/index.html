@@ -14,7 +14,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <link rel="stylesheet" href="/static/app.css?v=asha2005-v6">
+  <link rel="stylesheet" href="/static/app.css?v=asha2005-v8">
   <title>Audio Check | Prueba auditiva</title>
 </head>
 
@@ -108,8 +108,11 @@
         <button id="play-button" class="button button-primary" type="button"><span aria-hidden="true">▶</span>
           Reproducir tono</button>
         <button id="heard-button" class="button button-quiet" type="button" disabled>Sí lo oí</button>
-        <button id="stop-button" class="button button-stop" type="button">STOP</button>
         <button id="not-heard-button" class="button button-quiet" type="button" disabled>No lo oí</button>
+        <button id="stop-button" class="button button-stop" type="button">
+          <span>STOP</span>
+          <span class="button-subtext">(SALIR)</span>
+        </button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
       <p class="fine-print">Tono puro de 1 segundo en escala clínica estimada dB HL (Ajustar el volumen del dispositivo

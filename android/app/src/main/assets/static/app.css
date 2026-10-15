@@ -70,7 +70,8 @@ input[type="text"]:focus, input[type="number"]:focus {
 .button-primary:hover:not(:disabled) { background: #234542; }
 .button-quiet { border-color: var(--line); background: transparent; color: var(--ink); }
 .button-quiet:hover:not(:disabled) { border-color: #9eaea5; background: #f6f8f4; }
-.button-stop { background: var(--coral); color: #fffefa; border-color: var(--coral); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+.button-stop { background: var(--coral); color: #fffefa; border-color: var(--coral); font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; flex-direction: column; gap: 1px; padding: 4px 15px; line-height: 1.15; }
+.button-stop .button-subtext { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; opacity: 0.92; }
 .button-stop:hover:not(:disabled) { background: #bf593e; border-color: #bf593e; }
 .button-stop:active:not(:disabled) { transform: translateY(1px); }
 .button-text { padding-inline: 4px; background: transparent; color: var(--green); }
