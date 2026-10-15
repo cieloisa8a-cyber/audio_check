@@ -745,48 +745,9 @@ function raisedCosineRamp(peak, rising) {
 // Cadena: ditherNode -> highpassFilter (12 kHz) -> ditherGain (0.002) -> audioContext.destination
 // ---------------------------------------------------------------------------
 function startDither() {
-  if (!audioContext || ditherNode) return;
-
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  if (!isMobile) return;
-
-  try {
-    const sampleRate = audioContext.sampleRate || 44100;
-    const bufferSize = sampleRate * 2; // Buffer estéreo de 2 segundos
-    const ditherBuffer = audioContext.createBuffer(2, bufferSize, sampleRate);
-
-    // Llenado con ruido blanco estocástico [-1.0, 1.0]
-    for (let channel = 0; channel < 2; channel++) {
-      const channelData = ditherBuffer.getChannelData(channel);
-      for (let i = 0; i < bufferSize; i++) {
-        channelData[i] = Math.random() * 2 - 1;
-      }
-    }
-
-    // 1. AudioBufferSourceNode con loop continuo
-    ditherNode = audioContext.createBufferSource();
-    ditherNode.buffer = ditherBuffer;
-    ditherNode.loop = true;
-
-    // 2. Filtro Biquad Paso Alto a 12000 Hz (Noise Shaping psicoacústico)
-    const highpassFilter = audioContext.createBiquadFilter();
-    highpassFilter.type = "highpass";
-    highpassFilter.frequency.setValueAtTime(12000, audioContext.currentTime);
-
-    // 3. Ganancia de dither en 0.002
-    ditherGain = audioContext.createGain();
-    ditherGain.gain.setValueAtTime(0.002, audioContext.currentTime);
-
-    // 4. Enrutamiento: ditherNode -> highpassFilter -> ditherGain -> audioContext.destination
-    ditherNode.connect(highpassFilter);
-    highpassFilter.connect(ditherGain);
-    ditherGain.connect(audioContext.destination);
-
-    // 5. Iniciar reproducción continua
-    ditherNode.start();
-  } catch (err) {
-    console.warn("No se pudo iniciar el generador de dither:", err);
-  }
+  // Desactivado: El generador continuo de dither inyectaba un siseo estático ("shhh")
+  // audible a -54 dBFS (ganancia 0.002). Al apagarlo, el fondo queda en silencio absoluto.
+  return;
 }
 
 // Hughson-Westlake modificado (ASHA, 2005) con Fase de Familiarización estricta:
