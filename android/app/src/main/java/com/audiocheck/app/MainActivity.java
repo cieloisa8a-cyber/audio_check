@@ -84,7 +84,7 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
-        lockVolumeTo50Percent();
+        isVolumeLocked = false;
         webView = new WebView(this);
         webView.setBackgroundColor(0xfff3f5ef);
         WebSettings settings = webView.getSettings();
@@ -161,7 +161,9 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        lockVolumeTo50Percent();
+        if (isVolumeLocked) {
+            lockVolumeTo50Percent();
+        }
         updateWebHeadphoneStatus();
     }
 
@@ -211,6 +213,19 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private volatile boolean isVolumeLocked = false;
+
+    public void setVolumeLockActive(boolean locked) {
+        this.isVolumeLocked = locked;
+        if (locked) {
+            runOnUiThread(this::lockVolumeTo50Percent);
+        }
+    }
+
+    public boolean isVolumeLockActive() {
+        return this.isVolumeLocked;
+    }
+
     public void lockVolumeTo50Percent() {
         if (audioManager != null) {
             int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
@@ -221,11 +236,11 @@ public final class MainActivity extends Activity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP
+        if (isVolumeLocked && (keyCode == KeyEvent.KEYCODE_VOLUME_UP
                 || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE)) {
             lockVolumeTo50Percent();
-            Toast.makeText(this, "El control de volumen está inhabilitado por motivos clínicos (fijado al 50%).", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "El control de volumen está inhabilitado durante la prueba por motivos clínicos.", Toast.LENGTH_SHORT).show();
             return true;
         }
         return super.onKeyDown(keyCode, event);

@@ -172,6 +172,9 @@ function setHeadphonesDetected(detected) {
       elements.testPanel.hidden = true;
       elements.resultsPanel.hidden = true;
       elements.setup.hidden = false;
+      if (window.AndroidApp?.setVolumeLockActive) {
+        window.AndroidApp.setVolumeLockActive(false);
+      }
     }
 
     headphoneWarningAcknowledged = false;
@@ -237,6 +240,9 @@ function setHeadphonesDetected(detected) {
       elements.testPanel.hidden = true;
       elements.resultsPanel.hidden = true;
       elements.setup.hidden = false;
+      if (window.AndroidApp?.setVolumeLockActive) {
+        window.AndroidApp.setVolumeLockActive(false);
+      }
 
       // Abrir el modal limpio (sin la barrita flotante negra de fondo)
       if (!headphonesDetected && elements.headphoneDialog && !elements.headphoneDialog.open) {
@@ -540,8 +546,10 @@ async function startTest() {
   await audioContext.resume();
   await applyAudioSink();
 
-  // En Android fija y bloquea el volumen STREAM_MUSIC al 50% por requisito clínico
-  if (window.AndroidApp?.lockVolumeTo50Percent) {
+  // En Android bloquea el volumen y fija STREAM_MUSIC al 50% durante la prueba
+  if (window.AndroidApp?.setVolumeLockActive) {
+    window.AndroidApp.setVolumeLockActive(true);
+  } else if (window.AndroidApp?.lockVolumeTo50Percent) {
     window.AndroidApp.lockVolumeTo50Percent();
   }
 
@@ -763,6 +771,9 @@ function nextFrequency() {
 
   elements.testPanel.hidden = true;
   elements.resultsPanel.hidden = false;
+  if (window.AndroidApp?.setVolumeLockActive) {
+    window.AndroidApp.setVolumeLockActive(false);
+  }
   updateResultActionButtons();
   renderChart();
   elements.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -796,6 +807,9 @@ async function goToOtherEar() {
 // Reinicia la sesión para un nuevo paciente. Se conserva el AudioContext ya
 // desbloqueado (iOS) y el estado de detección de auriculares.
 function resetSession() {
+  if (window.AndroidApp?.setVolumeLockActive) {
+    window.AndroidApp.setVolumeLockActive(false);
+  }
   isQaMode = false;
   headphoneWarningAcknowledged = false;
   playbackId += 1;
@@ -1179,3 +1193,6 @@ window.setInterval(() => {
 
 updateSetupState();
 updateResultActionButtons();
+if (window.AndroidApp?.setVolumeLockActive) {
+  window.AndroidApp.setVolumeLockActive(false);
+}

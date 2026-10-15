@@ -27,6 +27,18 @@ public class AndroidBridge {
     }
 
     @JavascriptInterface
+    public void setVolumeLockActive(boolean locked) {
+        if (activity != null) {
+            activity.setVolumeLockActive(locked);
+        }
+    }
+
+    @JavascriptInterface
+    public boolean isVolumeLockActive() {
+        return activity != null && activity.isVolumeLockActive();
+    }
+
+    @JavascriptInterface
     public void lockVolumeTo50Percent() {
         if (activity != null) {
             activity.runOnUiThread(activity::lockVolumeTo50Percent);
