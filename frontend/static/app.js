@@ -1,21 +1,58 @@
+// ---------------------------------------------------------------------------
+// Frecuencias
+// ---------------------------------------------------------------------------
+// Orden de graficado (eje X del audiograma, de grave a agudo).
 const FREQUENCIES = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
-const MIN_LEVEL = -60;
-const MAX_LEVEL = -20;
-const LEVEL_STEP = 5;
+// Orden de presentación (ASHA, 2005): 1 kHz primero, luego agudos y al final graves.
+const TEST_ORDER = [1000, 2000, 3000, 4000, 6000, 8000, 500, 250];
 
-// Conversión estandarizada clínica a dB HL (Hearing Level)
-// -60 dBFS (mínimo nivel digital audible) -> 0 dB HL
-// -20 dBFS (máxima ganancia evaluada)    -> 100 dB HL
-function dbfsToDbhl(dbfs) {
+// ---------------------------------------------------------------------------
+// Modelo de nivel: dB HL estimados con compensación RETSPL relativa
+//   dBFS(f, L_HL) = L_HL + RETSPL_rel(f) - C_ref
+// RETSPL de referencia (ANSI S3.6, auricular supraaural clásico), en dB SPL.
+// Sólo se usa su FORMA espectral: sin la sensibilidad (dB SPL/V) del auricular
+// del paciente no hay trazabilidad absoluta, por eso los dB HL son "estimados".
+// ---------------------------------------------------------------------------
+const RETSPL_REL = {
+  250: 25.5,
+  500: 11.5,
+  1000: 7.0,
+  2000: 9.0,
+  3000: 10.0,
+  4000: 9.5,
+  6000: 15.5,
+  8000: 13.0,
+};
+const HL_MIN = 0;
+const HL_MAX = 100;
+// Margen bajo 0 dBFS pico para el peor caso (100 dB HL @ 250 Hz).
+const PEAK_HEADROOM_DB = 4.5;
+// C_ref = 100 + 25.5 + 4.5 = 130 dB  ->  100 dB HL @ 250 Hz = -4.5 dBFS pico.
+const C_REF_DB = HL_MAX + Math.max(...Object.values(RETSPL_REL)) + PEAK_HEADROOM_DB;
+
+function hlToDbfs(frequency, levelHl) {
+  if (levelHl === null || levelHl === undefined) return null;
+  return levelHl + RETSPL_REL[frequency] - C_REF_DB;
+}
+
+function dbfsToHl(frequency, dbfs) {
   if (dbfs === null || dbfs === undefined) return null;
-  const hl = (dbfs - MIN_LEVEL) * (100 / (MAX_LEVEL - MIN_LEVEL));
-  return Math.round(hl);
+  return dbfs - RETSPL_REL[frequency] + C_REF_DB;
 }
 
-function dbhlToDbfs(dbhl) {
-  if (dbhl === null || dbhl === undefined) return null;
-  return MIN_LEVEL + (dbhl / 100) * (MAX_LEVEL - MIN_LEVEL);
-}
+// ---------------------------------------------------------------------------
+// Búsqueda de umbral: Hughson-Westlake modificado (ASHA, 2005)
+// ---------------------------------------------------------------------------
+const HL_START = 30;
+const STEP_DOWN_DB = 10;
+const STEP_UP_DB = 5;
+const ASCENDING_WINDOW = 3;   // 2 de 3 respuestas en series ascendentes
+const ASCENDING_HITS_REQUIRED = 2;
+const MAX_TRIALS_PER_FREQUENCY = 40;
+
+// Tono: 1 s con rampas de coseno alzado de 20 ms (sin clics transitorios).
+const TONE_DURATION_S = 1.0;
+const RAMP_DURATION_S = 0.02;
 
 const elements = {
   setup: document.querySelector("#setup"),
@@ -62,7 +99,8 @@ const measurements = [];
 let audioContext;
 let currentEar = "left";
 let frequencyIndex = 0;
-let currentLevel = MIN_LEVEL;
+let currentLevel = HL_START; // nivel presentado en dB HL estimados
+let searchState = null;
 let isPlaying = false;
 let headphonesDetected = false;
 let headphoneCheckRequest = 0;
@@ -123,7 +161,7 @@ function setHeadphonesDetected(detected) {
       // la prueba quedó invalidada: resetear estado y regresar a setup con checkboxes listos para confirmar
       measurements.length = 0;
       frequencyIndex = 0;
-      currentLevel = MIN_LEVEL;
+      resetThresholdSearch();
       [elements.wiredCheck, elements.volumeCheck, elements.silenceCheck, elements.volumeLockCheck].forEach((cb) => {
         if (cb) cb.checked = false;
       });
@@ -183,7 +221,7 @@ function setHeadphonesDetected(detected) {
       // Reiniciar estado de prueba
       measurements.length = 0;
       frequencyIndex = 0;
-      currentLevel = MIN_LEVEL;
+      resetThresholdSearch();
       headphoneWarningAcknowledged = false;
 
       // Desmarcar todos los checkboxes
@@ -499,6 +537,12 @@ async function startTest() {
   audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
   await audioContext.resume();
   await applyAudioSink();
+
+  // En Android fija y bloquea el volumen STREAM_MUSIC al 50% por requisito clínico
+  if (window.AndroidApp?.lockVolumeTo50Percent) {
+    window.AndroidApp.lockVolumeTo50Percent();
+  }
+
   if (elements.patientName?.value?.trim()) {
     sessionPatientName = elements.patientName.value.trim();
   }
@@ -508,7 +552,7 @@ async function startTest() {
   }
   currentEar = elements.earSelect.value;
   frequencyIndex = 0;
-  currentLevel = MIN_LEVEL;
+  resetThresholdSearch();
   measurements.splice(0, measurements.length, ...measurements.filter((result) => result.ear !== currentEar));
   elements.setup.hidden = true;
   elements.resultsPanel.hidden = true;
@@ -516,12 +560,28 @@ async function startTest() {
   renderCurrentFrequency();
 }
 
+function currentFrequency() {
+  return TEST_ORDER[frequencyIndex];
+}
+
+function resetThresholdSearch() {
+  currentLevel = HL_START;
+  searchState = {
+    lastHeard: null,      // null = primera presentación de la frecuencia
+    trials: 0,
+    ascendingTrials: {},  // nivel -> presentaciones ascendentes contadas
+    ascendingHits: {},    // nivel -> respuestas positivas en ascenso
+    floorHits: 0,
+    ceilingMisses: 0,
+  };
+}
+
 function renderCurrentFrequency() {
-  const frequency = FREQUENCIES[frequencyIndex];
+  const frequency = currentFrequency();
   elements.testTitle.textContent = currentEar === "left" ? "Oído izquierdo" : "Oído derecho";
   elements.frequencyLabel.textContent = String(frequency);
-  elements.frequencyProgress.innerHTML = `${frequencyIndex + 1} <span>/ ${FREQUENCIES.length}</span>`;
-  elements.levelLabel.textContent = `Nivel: ${dbfsToDbhl(currentLevel)} dB HL`;
+  elements.frequencyProgress.innerHTML = `${frequencyIndex + 1} <span>/ ${TEST_ORDER.length}</span>`;
+  elements.levelLabel.textContent = `Nivel presentado: ${currentLevel} dB HL (estimado)`;
   elements.testStatus.textContent = "Reproduce el tono antes de responder.";
   elements.playButton.disabled = false;
   elements.heardButton.disabled = true;
@@ -542,36 +602,42 @@ async function playTone() {
     await applyAudioSink();
 
     const currentPlaybackId = ++playbackId;
+    const frequency = currentFrequency();
 
-    // Generación matemática de onda senoidal pura en tiempo real (Web Audio API - latencia cero)
+    // Síntesis matemática en tiempo real: seno puro, sin archivos de audio.
+    const levelDbfs = hlToDbfs(frequency, currentLevel);
+    const amplitude = Math.min(10 ** (levelDbfs / 20), 1);
     const oscillator = audioContext.createOscillator();
     activeOscillator = oscillator;
     const envelope = audioContext.createGain();
-    const startAt = audioContext.currentTime;
-    const amplitude = 10 ** (currentLevel / 20);
-
     oscillator.type = "sine";
-    oscillator.frequency.value = FREQUENCIES[frequencyIndex];
+    oscillator.frequency.value = frequency;
 
-    // Control dinámico de ganancia con envolvente suave (elimina transientes o chasquidos)
-    envelope.gain.setValueAtTime(0, startAt);
-    envelope.gain.linearRampToValueAtTime(amplitude, startAt + 0.04);
-    envelope.gain.setValueAtTime(amplitude, startAt + 0.88);
-    envelope.gain.linearRampToValueAtTime(0, startAt + 1.0);
-
-    const panValue = currentEar === "left" ? -1 : 1;
-    let finalNode = envelope;
-    if (typeof audioContext.createStereoPanner === "function") {
-      const panner = audioContext.createStereoPanner();
-      panner.pan.setValueAtTime(panValue, startAt);
-      envelope.connect(panner);
-      finalNode = panner;
+    // Envolvente: rampas de coseno alzado (Hann) de 20 ms en ataque y relajación (evita clics transitorios).
+    const startAt = audioContext.currentTime + 0.005;
+    envelope.gain.setValueAtTime(0, audioContext.currentTime);
+    try {
+      envelope.gain.setValueCurveAtTime(raisedCosineRamp(amplitude, true), startAt, RAMP_DURATION_S);
+      envelope.gain.setValueCurveAtTime(
+        raisedCosineRamp(amplitude, false),
+        startAt + TONE_DURATION_S - RAMP_DURATION_S,
+        RAMP_DURATION_S,
+      );
+    } catch {
+      envelope.gain.setValueAtTime(0, startAt);
+      envelope.gain.linearRampToValueAtTime(amplitude, startAt + RAMP_DURATION_S);
+      envelope.gain.setValueAtTime(amplitude, startAt + TONE_DURATION_S - RAMP_DURATION_S);
+      envelope.gain.linearRampToValueAtTime(0, startAt + TONE_DURATION_S);
     }
+
+    // Enrutado monoaural exacto: el tono sólo sale por el canal del oído evaluado.
+    const merger = audioContext.createChannelMerger(2);
     oscillator.connect(envelope);
-    finalNode.connect(audioContext.destination);
+    envelope.connect(merger, 0, currentEar === "left" ? 0 : 1);
+    merger.connect(audioContext.destination);
 
     oscillator.start(startAt);
-    oscillator.stop(startAt + 1.01);
+    oscillator.stop(startAt + TONE_DURATION_S + 0.01);
 
     oscillator.addEventListener("ended", () => {
       if (activeOscillator === oscillator) activeOscillator = null;
@@ -585,7 +651,7 @@ async function playTone() {
       elements.notHeardButton.disabled = false;
       elements.playButton.disabled = false;
       elements.testStatus.textContent = "¿Percibiste el tono con claridad?";
-    }, 1050);
+    }, Math.round((TONE_DURATION_S + 0.06) * 1000));
   } catch (error) {
     console.error("Error al reproducir tono:", error);
     isPlaying = false;
@@ -594,39 +660,94 @@ async function playTone() {
   }
 }
 
+function raisedCosineRamp(peak, rising) {
+  const points = 128;
+  const curve = new Float32Array(points);
+  for (let i = 0; i < points; i += 1) {
+    const w = 0.5 - 0.5 * Math.cos((Math.PI * i) / (points - 1));
+    curve[i] = peak * (rising ? w : 1 - w);
+  }
+  return curve;
+}
+
+// Hughson-Westlake modificado (ASHA, 2005):
+//  - inicio en 30 dB HL; "sí" -> baja 10 dB; "no" -> sube 5 dB;
+//  - una presentación es ASCENDENTE si sigue a una no-respuesta;
+//  - umbral = nivel con 2 respuestas positivas de (máx.) 3 presentaciones ascendentes.
 function recordResponse(heard) {
-  if (isPlaying) return;
+  if (isPlaying || !searchState) return;
+  const level = currentLevel;
+  const state = searchState;
+  state.trials += 1;
+
+  if (state.lastHeard === false) {
+    if (!state.ascendingTrials[level] || state.ascendingTrials[level] >= ASCENDING_WINDOW) {
+      state.ascendingTrials[level] = 1;
+      state.ascendingHits[level] = heard ? 1 : 0;
+    } else {
+      state.ascendingTrials[level] += 1;
+      if (heard) state.ascendingHits[level] = (state.ascendingHits[level] || 0) + 1;
+    }
+    if ((state.ascendingHits[level] || 0) >= ASCENDING_HITS_REQUIRED) {
+      finishFrequency(level);
+      return;
+    }
+  }
+
   if (heard) {
-    measurements.push({
-      ear: currentEar,
-      frequency_hz: FREQUENCIES[frequencyIndex],
-      level_dbfs: currentLevel,
-      level_dbhl: dbfsToDbhl(currentLevel)
-    });
-    nextFrequency();
+    // Suelo de la escala (0 dB HL): dos respuestas positivas fijan el umbral en 0.
+    if (level <= HL_MIN) {
+      state.floorHits += 1;
+      if (state.floorHits >= ASCENDING_HITS_REQUIRED) {
+        finishFrequency(HL_MIN);
+        return;
+      }
+    }
+    currentLevel = Math.max(HL_MIN, level - STEP_DOWN_DB);
+  } else {
+    // Techo de la escala (100 dB HL): dos no-respuestas -> NR (sin respuesta).
+    if (level >= HL_MAX) {
+      state.ceilingMisses += 1;
+      if (state.ceilingMisses >= ASCENDING_HITS_REQUIRED) {
+        finishFrequency(null);
+        return;
+      }
+    }
+    currentLevel = Math.min(HL_MAX, level + STEP_UP_DB);
+  }
+  state.lastHeard = heard;
+
+  // Salvaguarda ante respuestas inconsistentes: nivel ascendente más bajo con
+  // al menos una respuesta positiva; si no existe, se registra como NR.
+  if (state.trials >= MAX_TRIALS_PER_FREQUENCY) {
+    const candidates = Object.keys(state.ascendingHits).map(Number).filter((l) => state.ascendingHits[l] > 0);
+    finishFrequency(candidates.length ? Math.min(...candidates) : null);
     return;
   }
 
-  if (currentLevel < MAX_LEVEL) {
-    currentLevel = Math.min(currentLevel + LEVEL_STEP, MAX_LEVEL);
-    renderCurrentFrequency();
-    elements.testStatus.textContent = "Subió un paso el nivel. Reproduce el tono otra vez.";
-    return;
-  }
+  renderCurrentFrequency();
+  elements.testStatus.textContent = heard
+    ? `Respuesta positiva: el nivel baja ${STEP_DOWN_DB} dB. Reproduce el siguiente tono.`
+    : `Sin respuesta: el nivel sube ${STEP_UP_DB} dB. Reproduce el siguiente tono.`;
+}
 
+function finishFrequency(thresholdHl) {
+  const frequency = currentFrequency();
+  const noResponse = thresholdHl === null;
   measurements.push({
     ear: currentEar,
-    frequency_hz: FREQUENCIES[frequencyIndex],
-    level_dbfs: null,
-    level_dbhl: null
+    frequency_hz: frequency,
+    level_dbhl: noResponse ? null : thresholdHl,
+    level_dbfs: noResponse ? null : Math.round(hlToDbfs(frequency, thresholdHl) * 10) / 10,
+    no_response: noResponse,
   });
   nextFrequency();
 }
 
 function nextFrequency() {
   frequencyIndex += 1;
-  if (frequencyIndex < FREQUENCIES.length) {
-    currentLevel = MIN_LEVEL;
+  if (frequencyIndex < TEST_ORDER.length) {
+    resetThresholdSearch();
     renderCurrentFrequency();
     return;
   }
@@ -677,7 +798,7 @@ function resetSession() {
   measurements.length = 0;
   currentEar = "left";
   frequencyIndex = 0;
-  currentLevel = MIN_LEVEL;
+  resetThresholdSearch();
   elements.earSelect.value = "left";
   sessionPatientName = "";
   sessionPatientAge = null;
@@ -781,12 +902,25 @@ function renderChart() {
 
   const styles = { left: "#d56c50", right: "#237e72" };
   ["left", "right"].forEach((ear) => {
-    const points = measurements
-      .filter((item) => item.ear === ear && (item.level_dbhl != null || item.level_dbfs != null) && FREQUENCIES.includes(item.frequency_hz))
-      .map((item) => {
-        const val = item.level_dbhl != null ? item.level_dbhl : dbfsToDbhl(item.level_dbfs);
-        return { x: x(item.frequency_hz), y: y(val) };
-      });
+    const earItems = measurements
+      .filter((item) => item.ear === ear && FREQUENCIES.includes(item.frequency_hz))
+      .sort((a, b) => a.frequency_hz - b.frequency_hz);
+    const points = earItems
+      .filter((item) => item.level_dbhl != null)
+      .map((item) => ({ x: x(item.frequency_hz), y: y(item.level_dbhl) }));
+
+    // NR (sin respuesta a 100 dB HL): flecha hacia abajo en el límite inferior.
+    earItems.filter((item) => item.no_response).forEach((item) => {
+      const nx = x(item.frequency_hz) + (ear === "left" ? -5 : 5);
+      const ny = y(HL_MAX);
+      context.fillStyle = styles[ear];
+      context.beginPath();
+      context.moveTo(nx - 5, ny - 6);
+      context.lineTo(nx + 5, ny - 6);
+      context.lineTo(nx, ny + 2);
+      context.closePath();
+      context.fill();
+    });
     context.strokeStyle = styles[ear];
     context.lineWidth = 2;
     context.beginPath();
@@ -891,20 +1025,11 @@ async function exportPdf() {
   elements.pdfButton.textContent = "Exportando...";
   try {
     const filename = getReportFilename();
-
-    if (window.AndroidApp?.savePdfBase64) {
-      showToast("Descargando reporte PDF...", 3000);
-      const blob = await fetchPdfBlob();
-      const base64 = await blobToBase64(blob);
-      window.AndroidApp.savePdfBase64(base64, filename, false);
-      return;
-    }
+    const payloadJson = JSON.stringify(getReportPayload());
 
     if (window.AndroidApp?.exportPdf) {
       showToast("Descargando reporte PDF...", 3000);
-      const blob = await fetchPdfBlob();
-      const base64 = await blobToBase64(blob);
-      window.AndroidApp.exportPdf(base64, filename);
+      window.AndroidApp.exportPdf(payloadJson, false);
       return;
     }
 
@@ -927,18 +1052,10 @@ async function shareResults() {
   elements.shareButton.textContent = "Preparando...";
   try {
     const filename = getReportFilename();
-
-    if (window.AndroidApp?.savePdfBase64) {
-      const blob = await fetchPdfBlob();
-      const base64 = await blobToBase64(blob);
-      window.AndroidApp.savePdfBase64(base64, filename, true);
-      return;
-    }
+    const payloadJson = JSON.stringify(getReportPayload());
 
     if (window.AndroidApp?.sharePdf) {
-      const blob = await fetchPdfBlob();
-      const base64 = await blobToBase64(blob);
-      window.AndroidApp.sharePdf(base64, filename);
+      window.AndroidApp.sharePdf(payloadJson);
       return;
     }
 

@@ -27,6 +27,13 @@ public class AndroidBridge {
     }
 
     @JavascriptInterface
+    public void lockVolumeTo50Percent() {
+        if (activity != null) {
+            activity.runOnUiThread(activity::lockVolumeTo50Percent);
+        }
+    }
+
+    @JavascriptInterface
     public void exportPdf(String json, boolean share) {
         if (activity != null) {
             activity.exportPdf(json, share);

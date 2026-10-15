@@ -72,9 +72,7 @@
       <div class="notice calibration-notice" role="note">
         <span class="notice-icon" aria-hidden="true">!</span>
         <div>
-          <p><strong>Configuración obligatoria:</strong> <strong>AJUSTA EL VOLUMEN FÍSICO DE TU DISPOSITIVO EXACTAMENTE AL 50%.</strong>
-            Al no usar hardware clínico calibrado de fábrica, alterar el nivel físico durante la prueba esconderá
-            deficiencias auditivas e invalidará los resultados.</p>
+          <p><strong>Configuración obligatoria:</strong> Fija el volumen del sistema al 50% en celulares/Mac, o al 20%-25% en PC Windows. Desactiva mejoras de audio y no modifiques el volumen durante la prueba.</p>
         </div>
       </div>
       <div class="setup-actions">
@@ -94,13 +92,13 @@
           <p class="eyebrow">PRUEBA EN CURSO</p>
           <h2 id="test-title">Oído izquierdo</h2>
         </div>
-        <span id="frequency-progress" class="step-count">1 <span>/ 6</span></span>
+        <span id="frequency-progress" class="step-count">1 <span>/ 8</span></span>
       </div>
       <div class="tone-display">
         <span class="tone-orbit" aria-hidden="true"><span></span></span>
         <div><span id="frequency-label" class="frequency-value">1000</span><span class="frequency-unit">Hz</span></div>
       </div>
-      <p id="level-label" class="level-label">Nivel: 0 dB HL</p>
+      <p id="level-label" class="level-label">Nivel: 30 dB HL (estimado)</p>
       <p class="instruction">Reproduce el tono. Luego indica si lo percibiste con claridad.</p>
       <div class="test-actions">
         <button id="play-button" class="button button-primary" type="button"><span aria-hidden="true">▶</span>
@@ -120,7 +118,7 @@
         </div>
         <span class="step-count">03 <span>/ 03</span></span>
       </div>
-      <p class="chart-caption">Umbral auditivo indicado · dB HL <span>(referencia normalizada 50%)</span></p>
+      <p class="chart-caption">Umbral auditivo estimado · dB HL <span>(Compensación RETSPL relativa)</span></p>
       <div class="chart-wrap"><canvas id="audiogram" role="img"
           aria-label="Gráfica de niveles percibidos por frecuencia en dB HL"></canvas></div>
       <div class="chart-legend"><span><i class="legend-dot left-dot"></i>Izquierdo</span><span><i
@@ -131,9 +129,7 @@
         <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
-      <p class="result-disclaimer">Esta prueba es orientativa y educativa; no sustituye un diagnóstico audiológico
-        formal. Los resultados se representan en escala estandarizada dB HL tomando como referencia el volumen físico
-        del dispositivo al 50%.</p>
+      <p class="result-disclaimer">Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada. Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014). Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.</p>
     </section>
   </main>
 
@@ -169,7 +165,7 @@
       style="font-size: 0.8rem; text-decoration: underline; color: #6b7280; cursor: pointer; display: block; text-align: center; margin-top: 10px;">Continuar
       sin auriculares (Modo de prueba QA)</a>
   </dialog>
-  <script src="/static/app.js?v=webaudio-dbhl-v1" defer></script>
+  <script src="/static/app.js?v=webaudio-dbhl-v2" defer></script>
 </body>
 
 </html>

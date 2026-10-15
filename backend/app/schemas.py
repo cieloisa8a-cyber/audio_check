@@ -9,8 +9,9 @@ Frequency = Literal[250, 500, 1000, 2000, 3000, 4000, 6000, 8000]
 class Measurement(BaseModel):
     ear: Literal["left", "right"]
     frequency_hz: Frequency
-    level_dbfs: Optional[int] = Field(default=None, ge=-60, le=-20)
+    level_dbfs: Optional[float] = None
     level_dbhl: Optional[float] = Field(default=None, ge=0, le=120)
+    no_response: Optional[bool] = False
 
 
 class ReportRequest(BaseModel):

@@ -12,7 +12,7 @@ from .schemas import Measurement, ReportRequest
 FREQUENCIES = (250, 500, 1000, 2000, 3000, 4000, 6000, 8000)
 
 
-def dbfs_to_dbhl(dbfs: Optional[int]) -> Optional[float]:
+def dbfs_to_dbhl(dbfs: Optional[float]) -> Optional[float]:
     if dbfs is None:
         return None
     return round((dbfs + 60) * 2.5)
@@ -38,7 +38,7 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.drawString(48, page_height - 50, "Resumen auditivo")
     pdf.setFillColor(colors.HexColor("#526260"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawString(48, page_height - 66, "Registro de umbrales auditivos · decibelios de audición (dB HL)")
+    pdf.drawString(48, page_height - 66, "Umbral auditivo estimado · dB HL (Compensación RETSPL relativa)")
 
     patient_items = []
     if payload.patient_name:
@@ -102,6 +102,10 @@ def build_report(payload: ReportRequest) -> bytes:
     series = (("left", colors.HexColor("#dc684c"), "Oído izquierdo"),
               ("right", colors.HexColor("#237e72"), "Oído derecho"))
     lookup = {(item.ear, item.frequency_hz): get_level_dbhl(item) for item in payload.measurements}
+    no_response_lookup = {
+        (item.ear, item.frequency_hz): bool(getattr(item, "no_response", False) or (item.level_dbhl is None and item.level_dbfs is None))
+        for item in payload.measurements
+    }
 
     for ear, color, label in series:
         points = [
@@ -116,6 +120,20 @@ def build_report(payload: ReportRequest) -> bytes:
             pdf.line(first[0], first[1], second[0], second[1])
         for x, y in points:
             pdf.circle(x, y, 4, stroke=1, fill=1)
+
+        # Indicador clínico de No Respuesta (NR): flecha descendente en 100 dB HL
+        for frequency in FREQUENCIES:
+            if no_response_lookup.get((ear, frequency)):
+                nx = x_position(frequency) + (-4 if ear == "left" else 4)
+                ny = y_position(100.0)
+                pdf.setStrokeColor(color)
+                pdf.setFillColor(color)
+                p = pdf.beginPath()
+                p.moveTo(nx - 4, ny + 6)
+                p.lineTo(nx + 4, ny + 6)
+                p.lineTo(nx, ny - 2)
+                p.close()
+                pdf.drawPath(p, fill=1, stroke=0)
 
         legend_x = right - 145 if ear == "left" else right - 55
         pdf.setFillColor(color)
@@ -153,7 +171,8 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.setFont("Helvetica", 8)
     for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("left", f))
-        txt = f"{int(round(val))}" if val is not None else "—"
+        nr = no_response_lookup.get(("left", f), False)
+        txt = "NR" if nr else (f"{int(round(val))}" if val is not None else "—")
         pdf.drawCentredString(col_center(i), table_top - table_row_h - 11, txt)
 
     # Fila Oído Derecho
@@ -163,7 +182,8 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.setFont("Helvetica", 8)
     for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("right", f))
-        txt = f"{int(round(val))}" if val is not None else "—"
+        nr = no_response_lookup.get(("right", f), False)
+        txt = "NR" if nr else (f"{int(round(val))}" if val is not None else "—")
         pdf.drawCentredString(col_center(i), table_top - table_row_h * 2 - 11, txt)
 
     # Líneas de contorno y cuadrícula de la tabla
@@ -182,19 +202,20 @@ def build_report(payload: ReportRequest) -> bytes:
 
     # Notas aclaratorias y pie institucional
     pdf.setFillColor(colors.HexColor("#8a5140"))
-    pdf.setFont("Helvetica-Bold", 8.5)
-    pdf.drawString(table_left, 66, "Registro orientativo en escala dB HL (referencia 50% de volumen físico con audífonos de cable).")
+    pdf.setFont("Helvetica-Bold", 7.8)
+    pdf.drawString(table_left, 66, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
     pdf.setFillColor(colors.HexColor("#526260"))
-    pdf.setFont("Helvetica", 7.5)
-    pdf.drawString(table_left, 54, "Al no realizarse con audiómetro calibrado de fábrica con acoplador acústico (IEC 60318), no sustituye una audiometría clínica reglamentaria.")
+    pdf.setFont("Helvetica", 7.2)
+    pdf.drawString(table_left, 54, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
+    pdf.drawString(table_left, 43, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
 
     pdf.setFillColor(colors.HexColor("#8a0303"))
-    pdf.setFont("Helvetica-Bold", 10.5)
-    pdf.drawCentredString(page_width / 2, 36, "Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.")
+    pdf.setFont("Helvetica-Bold", 9.5)
+    pdf.drawCentredString(page_width / 2, 29, "Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.")
 
     pdf.setFillColor(colors.HexColor("#87938c"))
-    pdf.setFont("Helvetica", 7.5)
-    pdf.drawCentredString(page_width / 2, 20, "Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2")
+    pdf.setFont("Helvetica", 7.2)
+    pdf.drawCentredString(page_width / 2, 16, "Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2")
 
     pdf.showPage()
     pdf.save()

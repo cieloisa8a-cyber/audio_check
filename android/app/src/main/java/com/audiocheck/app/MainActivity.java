@@ -79,6 +79,7 @@ public final class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        lockVolumeTo50Percent();
         webView = new WebView(this);
         webView.setBackgroundColor(0xfff3f5ef);
         WebSettings settings = webView.getSettings();
@@ -146,6 +147,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        lockVolumeTo50Percent();
         updateWebHeadphoneStatus();
     }
 
@@ -195,10 +197,21 @@ public final class MainActivity extends Activity {
         }
     }
 
+    public void lockVolumeTo50Percent() {
+        if (audioManager != null) {
+            int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int targetVol = Math.round(maxVol * 0.5f);
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0);
+        }
+    }
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            Toast.makeText(this, "El control de volumen está inhabilitado por motivos clínicos.", Toast.LENGTH_SHORT).show();
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+                || keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            lockVolumeTo50Percent();
+            Toast.makeText(this, "El control de volumen está inhabilitado por motivos clínicos (fijado al 50%).", Toast.LENGTH_SHORT).show();
             return true;
         }
         return super.onKeyDown(keyCode, event);
@@ -367,17 +380,18 @@ public final class MainActivity extends Activity {
             if (!isFrequency(frequency)) {
                 continue;
             }
+            boolean noResponse = value.optBoolean("no_response", false);
             Integer level = null;
             if (value.has("level_dbhl") && !value.isNull("level_dbhl")) {
                 level = (int) Math.round(value.getDouble("level_dbhl"));
             } else if (value.has("level_dbfs") && !value.isNull("level_dbfs")) {
-                int dbfs = value.getInt("level_dbfs");
+                double dbfs = value.getDouble("level_dbfs");
                 level = (int) Math.round((dbfs + 60) * 2.5);
             }
             if (level != null && (level < 0 || level > 120)) {
                 continue;
             }
-            data.measurements.add(new Measurement(ear, frequency, level));
+            data.measurements.add(new Measurement(ear, frequency, level, noResponse));
         }
 
         if (data.measurements.isEmpty()) {
@@ -536,7 +550,7 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(10);
-        canvas.drawText("Registro de umbrales auditivos · decibelios de audición (dB HL)", 48, 68, paint);
+        canvas.drawText("Umbral auditivo estimado · dB HL (Compensación RETSPL relativa)", 48, 68, paint);
 
         if (patientName != null || patientAge != null) {
             StringBuilder info = new StringBuilder();
@@ -595,12 +609,13 @@ public final class MainActivity extends Activity {
         paint.setColor(0xff8a5140);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
         paint.setTextAlign(Paint.Align.LEFT);
-        paint.setTextSize(9);
-        canvas.drawText("Registro orientativo en escala dB HL (referencia 50% de volumen físico con audífonos de cable).", left, 543, paint);
+        paint.setTextSize(8.2f);
+        canvas.drawText("Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.", left, 542, paint);
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
-        paint.setTextSize(8);
-        canvas.drawText("Al no realizarse con audiómetro clínico calibrado con acoplador acústico (IEC 60318), no sustituye una audiometría reglamentaria.", left, 558, paint);
+        paint.setTextSize(7.5f);
+        canvas.drawText("Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).", left, 555, paint);
+        canvas.drawText("Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.", left, 567, paint);
 
         paint.setTextSize(7.5f);
         paint.setTextAlign(Paint.Align.CENTER);
@@ -653,6 +668,22 @@ public final class MainActivity extends Activity {
             canvas.drawCircle(point[0], point[1], 4, paint);
         }
 
+        // Indicador clínico de No Respuesta (NR): flecha descendente en 100 dB HL
+        for (Measurement measurement : measurements) {
+            if (ear.equals(measurement.ear) && measurement.noResponse) {
+                float nx = xPosition(measurement.frequency, left, right) + ("left".equals(ear) ? -4 : 4);
+                float ny = yPosition(100, top, bottom);
+                paint.setColor(color);
+                paint.setStyle(Paint.Style.FILL);
+                android.graphics.Path path = new android.graphics.Path();
+                path.moveTo(nx - 4, ny - 6);
+                path.lineTo(nx + 4, ny - 6);
+                path.lineTo(nx, ny + 2);
+                path.close();
+                canvas.drawPath(path, paint);
+            }
+        }
+
         float legendX = "left".equals(ear) ? right - 145 : right - 55;
         canvas.drawCircle(legendX, 73, 3, paint);
         paint.setColor(MUTED);
@@ -682,11 +713,13 @@ public final class MainActivity extends Activity {
         final String ear;
         final int frequency;
         final Integer level;
+        final boolean noResponse;
 
-        Measurement(String ear, int frequency, Integer level) {
+        Measurement(String ear, int frequency, Integer level, boolean noResponse) {
             this.ear = ear;
             this.frequency = frequency;
             this.level = level;
+            this.noResponse = noResponse;
         }
     }
 }
