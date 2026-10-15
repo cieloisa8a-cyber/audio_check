@@ -7,6 +7,13 @@
 [![Web Audio API](https://img.shields.io/badge/Web_Audio_API-W3C-orange?style=flat-square)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
 [![Android](https://img.shields.io/badge/Android-API_29+-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/)
 [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
+[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=flat-square&logo=vercel)](https://audio-check.vercel.app/)
+
+---
+
+### 🌐 Aplicación en producción (Acceso directo)
+> **Puedes utilizar y probar la plataforma en cualquier dispositivo (Web/Móvil) sin instalar nada:**  
+> 👉 **[https://audio-check.vercel.app](https://audio-check.vercel.app/)**
 
 ---
 
@@ -90,11 +97,20 @@ audio_check/
 
 ---
 
-## 🚀 Instalación y uso local
+## 🚀 Acceso y Modos de Uso
 
-### 1. Prerrequisitos
+### 🌐 1. Uso directo en la Web (Recomendado)
+No requiere instalación ni configuración previa. Solo conecta tus auriculares con cable y accede a:  
+👉 **[https://audio-check.vercel.app](https://audio-check.vercel.app/)**
+
+---
+
+### 💻 2. Entorno de desarrollo local (Opcional)
+Si eres desarrollador, docente o deseas auditar y ejecutar el código fuente en tu propia máquina:
+
+#### Prerrequisitos
 - **Python 3.9** o superior instalado en el sistema.
-- Auriculares alámbricos (3.5 mm o USB-C) para realizar la prueba.
+- Auriculares alámbricos (3.5 mm o USB-C).
 
 ### 2. Configuración del entorno
 
