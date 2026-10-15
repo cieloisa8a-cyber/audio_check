@@ -23,7 +23,7 @@ const RETSPL_REL = {
   6000: 15.5,
   8000: 13.0,
 };
-const HL_MIN = 0;
+const HL_MIN = 10;
 const HL_MAX = 100;
 // Margen bajo 0 dBFS pico para el peor caso (100 dB HL @ 250 Hz).
 const PEAK_HEADROOM_DB = 4.5;
@@ -747,8 +747,8 @@ function recordResponse(heard) {
   // FASE 2: BÚSQUEDA DE UMBRAL (Hughson-Westlake: -10 dB / +5 dB)
   // -------------------------------------------------------------------------
 
-  // 1. Límite de PISO (0 dB HL): si el usuario responde afirmativamente en 0 dB HL,
-  // el algoritmo deja de restar 10 dB, registra inmediatamente 0 dB HL y avanza.
+  // 1. Límite de PISO (10 dB HL): si el usuario responde afirmativamente en 10 dB HL (HL_MIN),
+  // el algoritmo deja de restar 10 dB, registra inmediatamente 10 dB HL y avanza.
   if (heard && level <= HL_MIN) {
     finishFrequency(HL_MIN);
     return;
