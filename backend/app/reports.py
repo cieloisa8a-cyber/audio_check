@@ -121,11 +121,11 @@ def build_report(payload: ReportRequest) -> bytes:
         for x, y in points:
             pdf.circle(x, y, 4, stroke=1, fill=1)
 
-        # Indicador clínico de No Respuesta (NR): flecha descendente en 100 dB HL
+        # Indicador clínico de No Respuesta (NR): flecha descendente en el límite máximo de 80 dB HL
         for frequency in FREQUENCIES:
             if no_response_lookup.get((ear, frequency)):
                 nx = x_position(frequency) + (-4 if ear == "left" else 4)
-                ny = y_position(100.0)
+                ny = y_position(80.0)
                 pdf.setStrokeColor(color)
                 pdf.setFillColor(color)
                 p = pdf.beginPath()

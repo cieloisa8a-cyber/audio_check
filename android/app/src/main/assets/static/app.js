@@ -24,11 +24,12 @@ const RETSPL_REL = {
   8000: 13.0,
 };
 const HL_MIN = 10;
-const HL_MAX = 100;
-// Margen bajo 0 dBFS pico para el peor caso (100 dB HL @ 250 Hz).
-const PEAK_HEADROOM_DB = 4.5;
-// C_ref = 100 + 25.5 + 4.5 = 130 dB  ->  100 dB HL @ 250 Hz = -4.5 dBFS pico.
-const C_REF_DB = HL_MAX + Math.max(...Object.values(RETSPL_REL)) + PEAK_HEADROOM_DB;
+const HL_MAX = 80;
+// Optimización de resolución digital de 16 bits (C_ref = 106 dB):
+// A 80 dB HL @ 250 Hz (RETSPL = 25.5), nivel = 105.5 dB -> pico máximo de -0.5 dBFS.
+// Esto eleva toda la señal digital en ~24 dB, sacando los tonos del piso de ruido del DAC
+// y eliminando el ruido de cuantificación / distorsión armónica en los 16 bits de Android.
+const C_REF_DB = 106;
 
 function hlToDbfs(frequency, levelHl) {
   if (levelHl === null || levelHl === undefined) return null;
@@ -754,8 +755,8 @@ function recordResponse(heard) {
     return;
   }
 
-  // 2. Límite de TECHO (100 dB HL): si el usuario está en el tope máximo y responde "No",
-  // no debe intentar subir a 105 dB HL; registra no_response: true y avanza.
+  // 2. Límite de TECHO (80 dB HL): si el usuario está en el tope máximo y responde "No",
+  // no debe intentar subir a 85 dB HL; registra no_response: true y avanza.
   if (!heard && level >= HL_MAX) {
     finishFrequency(null);
     return;
