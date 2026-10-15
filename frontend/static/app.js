@@ -108,6 +108,8 @@ let headphoneCheckRequest = 0;
 let headphoneWarningAcknowledged = false;
 let isQaMode = false;
 let activeOscillator;
+let ditherNode = null;
+let ditherGain = null;
 let playbackTimer;
 let playbackId = 0;
 let selectedAudioDeviceId = "";
@@ -546,6 +548,7 @@ async function startTest() {
   audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
   await audioContext.resume();
   await applyAudioSink();
+  startDither();
 
   // En Android bloquea el volumen y fija STREAM_MUSIC al 50% durante la prueba
   if (window.AndroidApp?.setVolumeLockActive) {
@@ -611,6 +614,7 @@ async function playTone() {
     audioContext ||= new AudioContextClass();
     await audioContext.resume();
     await applyAudioSink();
+    startDither();
 
     const currentPlaybackId = ++playbackId;
     const frequency = currentFrequency();
@@ -679,6 +683,47 @@ function raisedCosineRamp(peak, rising) {
     curve[i] = peak * (rising ? w : 1 - w);
   }
   return curve;
+}
+
+// ---------------------------------------------------------------------------
+// Inyección de Dither (Ruido Blanco) para linealizar la cuantificación
+// en la conversión a 16-bits de Android WebView (AudioTrack):
+// Genera un piso sub-audible continuo (~ -80 dBFS, ganancia 0.0001) que conmuta
+// el LSB (Least Significant Bit), transformando los armónicos de distorsión
+// de cuantificación a bajos niveles (30 dB HL) en un piso de ruido inaudible.
+// ---------------------------------------------------------------------------
+function startDither() {
+  if (!audioContext || ditherNode) return;
+  try {
+    const sampleRate = audioContext.sampleRate || 44100;
+    const bufferSize = sampleRate * 2; // Buffer estéreo de 2 segundos
+    const ditherBuffer = audioContext.createBuffer(2, bufferSize, sampleRate);
+
+    // Llenado con ruido blanco estocástico [-1.0, 1.0]
+    for (let channel = 0; channel < 2; channel++) {
+      const channelData = ditherBuffer.getChannelData(channel);
+      for (let i = 0; i < bufferSize; i++) {
+        channelData[i] = Math.random() * 2 - 1;
+      }
+    }
+
+    // AudioBufferSourceNode con loop continuo
+    ditherNode = audioContext.createBufferSource();
+    ditherNode.buffer = ditherBuffer;
+    ditherNode.loop = true;
+
+    // Ganancia microscópica (0.0001 = aprox. -80 dBFS)
+    ditherGain = audioContext.createGain();
+    ditherGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+
+    // Enrutamiento directo al destino maestro de salida
+    ditherNode.connect(ditherGain);
+    ditherGain.connect(audioContext.destination);
+
+    ditherNode.start();
+  } catch (err) {
+    console.warn("No se pudo iniciar el generador de dither:", err);
+  }
 }
 
 // Hughson-Westlake modificado (ASHA, 2005) con Fase de Familiarización estricta:
@@ -1248,3 +1293,11 @@ updateResultActionButtons();
 if (window.AndroidApp?.setVolumeLockActive) {
   window.AndroidApp.setVolumeLockActive(false);
 }
+
+["click", "pointerdown", "touchstart"].forEach((evt) => {
+  document.addEventListener(evt, () => {
+    if (audioContext && audioContext.state === "running") {
+      startDither();
+    }
+  }, { passive: true });
+});
