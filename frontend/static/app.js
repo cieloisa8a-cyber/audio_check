@@ -686,14 +686,19 @@ function raisedCosineRamp(peak, rising) {
 }
 
 // ---------------------------------------------------------------------------
-// Inyección de Dither (Ruido Blanco) para linealizar la cuantificación
-// en la conversión a 16-bits de Android WebView (AudioTrack):
-// Genera un piso sub-audible continuo (~ -80 dBFS, ganancia 0.0001) que conmuta
-// el LSB (Least Significant Bit), transformando los armónicos de distorsión
-// de cuantificación a bajos niveles (30 dB HL) en un piso de ruido inaudible.
+// Inyección de Shaped Dither (Ruido Blanco con Filtro Paso Alto a 12 kHz):
+// Protege contra la distorsión de cuantificación del DAC móvil en Android e iOS
+// (iPhone / iPad), conmutando el LSB y desplazando la energía estocástica fuera
+// de la banda de mayor sensibilidad auditiva humana (> 12 kHz).
+// En navegadores de escritorio (Windows/Mac), se desactiva para mantener la señal pura.
+// Cadena: ditherNode -> highpassFilter (12 kHz) -> ditherGain (0.002) -> audioContext.destination
 // ---------------------------------------------------------------------------
 function startDither() {
   if (!audioContext || ditherNode) return;
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  if (!isMobile) return;
+
   try {
     const sampleRate = audioContext.sampleRate || 44100;
     const bufferSize = sampleRate * 2; // Buffer estéreo de 2 segundos
@@ -707,19 +712,26 @@ function startDither() {
       }
     }
 
-    // AudioBufferSourceNode con loop continuo
+    // 1. AudioBufferSourceNode con loop continuo
     ditherNode = audioContext.createBufferSource();
     ditherNode.buffer = ditherBuffer;
     ditherNode.loop = true;
 
-    // Ganancia microscópica (0.0001 = aprox. -80 dBFS)
-    ditherGain = audioContext.createGain();
-    ditherGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    // 2. Filtro Biquad Paso Alto a 12000 Hz (Noise Shaping psicoacústico)
+    const highpassFilter = audioContext.createBiquadFilter();
+    highpassFilter.type = "highpass";
+    highpassFilter.frequency.setValueAtTime(12000, audioContext.currentTime);
 
-    // Enrutamiento directo al destino maestro de salida
-    ditherNode.connect(ditherGain);
+    // 3. Ganancia de dither en 0.002
+    ditherGain = audioContext.createGain();
+    ditherGain.gain.setValueAtTime(0.002, audioContext.currentTime);
+
+    // 4. Enrutamiento: ditherNode -> highpassFilter -> ditherGain -> audioContext.destination
+    ditherNode.connect(highpassFilter);
+    highpassFilter.connect(ditherGain);
     ditherGain.connect(audioContext.destination);
 
+    // 5. Iniciar reproducción continua
     ditherNode.start();
   } catch (err) {
     console.warn("No se pudo iniciar el generador de dither:", err);
