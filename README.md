@@ -63,7 +63,6 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
 ```text
 audio_check/
 ├── .github/
-│   ├── CODEOWNERS               # Reglas de protección y revisión de administradores
 │   └── workflows/               # Automatización e integración continua
 ├── backend/
 │   └── app/
@@ -176,13 +175,6 @@ La aplicación móvil conecta el frontend optimizado con capacidades nativas del
    - Pulsa **Medir el otro oído** para evaluar el oído contralateral inmediatamente.
    - Pulsa **Exportar PDF** para descargar el reporte o **Compartir** para enviarlo directamente.
 
----
-
-## 🔒 Seguridad y Gobernanza del Código
-
-El repositorio cuenta con configuración de **CODEOWNERS** en [`.github/CODEOWNERS`](file:///.github/CODEOWNERS). Cualquier contribución o modificación en la rama principal (`main`) requiere obligatoriamente:
-- Apertura de un **Pull Request**.
-- Revisión y aprobación explícita del administrador (`@cieloisa8a-cyber`).
 
 ---
 
