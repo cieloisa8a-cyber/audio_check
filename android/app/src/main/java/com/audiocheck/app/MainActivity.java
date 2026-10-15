@@ -70,7 +70,7 @@ public final class MainActivity extends Activity {
     private static final int GRID = 0xffd5dfdb;
     private static final int LEFT = 0xffdc684c;
     private static final int RIGHT = 0xff237e72;
-    private static final int[] FREQUENCIES = {250, 500, 1000, 2000, 3000, 4000, 6000, 8000};
+    private static final int[] FREQUENCIES = {250, 500, 1000, 2000, 4000, 8000};
     private static final int MAX_MEASUREMENTS = FREQUENCIES.length * 2;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -827,15 +827,15 @@ public final class MainActivity extends Activity {
 
     private static int[] getIso7029Curve(Integer age) {
         if (age == null || age < 1) {
-            return new int[]{5, 5, 5, 5, 5, 5, 5, 10};
+            return new int[]{5, 5, 5, 5, 5, 10};
         } else if (age <= 19) {
-            return new int[]{0, 0, 0, 0, 0, 0, 0, 0};
+            return new int[]{0, 0, 0, 0, 0, 0};
         } else if (age <= 39) {
-            return new int[]{5, 5, 5, 5, 5, 5, 5, 10};
+            return new int[]{5, 5, 5, 5, 5, 10};
         } else if (age <= 59) {
-            return new int[]{5, 5, 5, 10, 10, 15, 20, 25};
+            return new int[]{5, 5, 5, 10, 15, 25};
         } else {
-            return new int[]{10, 10, 10, 15, 25, 30, 45, 50};
+            return new int[]{10, 10, 10, 15, 30, 50};
         }
     }
 

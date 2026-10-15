@@ -38,8 +38,8 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
   - Trazado comparativo automático en la interfaz y en el reporte PDF según la edad del paciente (1–19 años, 20–39 años, 40–59 años, 60+ años) para visualizar tendencias normativas y presbiacusia.
 - **Botón STOP de aborto inmediato:**
   - Botón siempre activo durante la reproducción tonal que detiene el oscilador al instante y reinicia la prueba al menú inicial de verificación.
-- **Rango de 8 frecuencias tonales normalizadas:**
-  $$\text{250, 500, 1000, 2000, 3000, 4000, 6000 y 8000 Hz}$$
+- **Rango de 6 frecuencias tonales normalizadas:**
+  $$\text{250, 500, 1000, 2000, 4000 y 8000 Hz}$$
   Envolvente de coseno alzado (Hann de 20 ms) para erradicar clics y transitorios de conmutación.
 - **Audiograma dinámico y visualización clínica:**
   - Trazado de simbología audiométrica estándar (Rojo: Oído Izquierdo $\times$, Verde/Azul: Oído Derecho $\bigcirc$) con compensación para pantallas Retina y móviles.

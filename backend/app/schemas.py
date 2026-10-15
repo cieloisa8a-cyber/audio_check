@@ -3,7 +3,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
-Frequency = Literal[250, 500, 1000, 2000, 3000, 4000, 6000, 8000]
+Frequency = Literal[250, 500, 1000, 2000, 4000, 8000]
 
 
 class Measurement(BaseModel):
@@ -17,6 +17,6 @@ class Measurement(BaseModel):
 class ReportRequest(BaseModel):
     patient_name: Optional[str] = Field(default=None, max_length=100)
     patient_age: Optional[int] = Field(default=None, ge=1, le=120)
-    measurements: list[Measurement] = Field(min_length=1, max_length=16)
+    measurements: list[Measurement] = Field(min_length=1, max_length=12)
     observations: Optional[str] = None
     observaciones: Optional[str] = None

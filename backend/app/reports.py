@@ -9,7 +9,7 @@ from reportlab.pdfgen import canvas
 from .schemas import Measurement, ReportRequest
 
 
-FREQUENCIES = (250, 500, 1000, 2000, 3000, 4000, 6000, 8000)
+FREQUENCIES = (250, 500, 1000, 2000, 4000, 8000)
 
 
 def dbfs_to_dbhl(dbfs: Optional[float]) -> Optional[float]:
@@ -28,14 +28,14 @@ def get_level_dbhl(item: Measurement) -> Optional[float]:
 
 def get_iso_7029_reference(age: Optional[int]) -> tuple[str, list[float]]:
     if age is None or age < 1:
-        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
+        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
     if 1 <= age <= 19:
-        return "1-19 años", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        return "1-19 años", [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     if 20 <= age <= 39:
-        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
+        return "20-39 años", [5.0, 5.0, 5.0, 5.0, 5.0, 10.0]
     if 40 <= age <= 59:
-        return "40-59 años", [5.0, 5.0, 5.0, 10.0, 10.0, 15.0, 20.0, 25.0]
-    return "60+ años", [10.0, 10.0, 10.0, 15.0, 25.0, 30.0, 45.0, 50.0]
+        return "40-59 años", [5.0, 5.0, 5.0, 10.0, 15.0, 25.0]
+    return "60+ años", [10.0, 10.0, 10.0, 15.0, 30.0, 50.0]
 
 
 def build_report(payload: ReportRequest) -> bytes:

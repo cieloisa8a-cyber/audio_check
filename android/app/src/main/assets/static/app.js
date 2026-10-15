@@ -2,9 +2,9 @@
 // Frecuencias
 // ---------------------------------------------------------------------------
 // Orden de graficado (eje X del audiograma, de grave a agudo).
-const FREQUENCIES = [250, 500, 1000, 2000, 3000, 4000, 6000, 8000];
+const FREQUENCIES = [250, 500, 1000, 2000, 4000, 8000];
 // Orden de presentación (ASHA, 2005): 1 kHz primero, luego agudos y al final graves.
-const TEST_ORDER = [1000, 2000, 3000, 4000, 6000, 8000, 500, 250];
+const TEST_ORDER = [1000, 2000, 4000, 8000, 500, 250];
 
 // ---------------------------------------------------------------------------
 // Modelo de nivel: dB HL estimados con compensación RETSPL relativa
@@ -18,9 +18,7 @@ const RETSPL_REL = {
   500: 11.5,
   1000: 7.0,
   2000: 9.0,
-  3000: 10.0,
   4000: 9.5,
-  6000: 15.5,
   8000: 13.0,
 };
 const HL_MIN = 0;
@@ -43,32 +41,32 @@ function dbfsToHl(frequency, dbfs) {
 
 // ---------------------------------------------------------------------------
 // Perfiles de referencia de audición ideal por edad (ISO 7029)
-// Umbrales esperados en dB HL para [250, 500, 1000, 2000, 3000, 4000, 6000, 8000] Hz:
-// - 1 a 19 años:  [0, 0, 0, 0, 0, 0, 0, 0] dB HL (Referencia joven/ideal)
-// - 20 a 39 años: [5, 5, 5, 5, 5, 5, 5, 10] dB HL
-// - 40 a 59 años: [5, 5, 5, 10, 10, 15, 20, 25] dB HL (Presbiacusia leve/frecuencias altas)
-// - 60 años o más: [10, 10, 10, 15, 25, 30, 45, 50] dB HL (Envejecimiento auditivo estándar)
+// Umbrales esperados en dB HL para [250, 500, 1000, 2000, 4000, 8000] Hz:
+// - 1 a 19 años:  [0, 0, 0, 0, 0, 0] dB HL (Referencia joven/ideal)
+// - 20 a 39 años: [5, 5, 5, 5, 5, 10] dB HL
+// - 40 a 59 años: [5, 5, 5, 10, 15, 25] dB HL (Presbiacusia leve/frecuencias altas)
+// - 60 años o más: [10, 10, 10, 15, 30, 50] dB HL (Envejecimiento auditivo estándar)
 // ---------------------------------------------------------------------------
 const ISO_7029_PROFILES = {
   joven: {
     rangoNombre: "1-19 años",
     label: "Referencia por edad (1-19 años)",
-    curva: [0, 0, 0, 0, 0, 0, 0, 0],
+    curva: [0, 0, 0, 0, 0, 0],
   },
   adultoJoven: {
     rangoNombre: "20-39 años",
     label: "Referencia por edad (20-39 años)",
-    curva: [5, 5, 5, 5, 5, 5, 5, 10],
+    curva: [5, 5, 5, 5, 5, 10],
   },
   adultoMedio: {
     rangoNombre: "40-59 años",
     label: "Referencia por edad (40-59 años)",
-    curva: [5, 5, 5, 10, 10, 15, 20, 25],
+    curva: [5, 5, 5, 10, 15, 25],
   },
   adultoMayor: {
     rangoNombre: "60+ años",
     label: "Referencia por edad (60+ años)",
-    curva: [10, 10, 10, 15, 25, 30, 45, 50],
+    curva: [10, 10, 10, 15, 30, 50],
   },
 };
 
@@ -1056,7 +1054,7 @@ function renderChart() {
     bottom: height - 42 - pointRadius,
   };
   // Eje X equidistante: cada frecuencia ocupa una columna fija según su índice
-  // (250, 500, 1000, 2000, 3000, 4000, 6000, 8000 Hz).
+  // (250, 500, 1000, 2000, 4000, 8000 Hz).
   const lastIndex = FREQUENCIES.length - 1;
   const columnWidth = (plot.right - plot.left) / lastIndex;
   const x = (frequency) => plot.left + FREQUENCIES.indexOf(frequency) * columnWidth;
