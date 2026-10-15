@@ -135,10 +135,9 @@
         <button id="other-ear-button" class="button button-quiet" type="button">Medir el otro oído</button>
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
-      <p id="results-hardware-note" class="result-disclaimer hardware-uncertainty-note" hidden></p>
-      <p class="result-disclaimer">Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia
-        digital controlada. Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈
-        ±7-10 dB; Masalski et al., 2014). Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.</p>
+      <div class="result-disclaimer-box">
+        <p class="result-disclaimer"><strong>Nota técnica:</strong> Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador, existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.</p>
+      </div>
     </section>
   </main>
 

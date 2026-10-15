@@ -667,7 +667,7 @@ public final class MainActivity extends Activity {
 
         float left = 96;
         float right = 750;
-        float bottom = 500;
+        float bottom = 455;
         float top = 118;
         for (int level = 0; level <= 100; level += 20) {
             float y = yPosition(level, top, bottom);
@@ -686,12 +686,12 @@ public final class MainActivity extends Activity {
             canvas.drawLine(x, bottom, x, top, paint);
             paint.setColor(MUTED);
             paint.setTextAlign(Paint.Align.CENTER);
-            canvas.drawText(String.valueOf(frequency), x, bottom + 17, paint);
+            canvas.drawText(String.valueOf(frequency), x, bottom + 16, paint);
         }
 
         paint.setColor(INK);
         paint.setTextSize(9);
-        canvas.drawText("Frecuencia (Hz)", (left + right) / 2, bottom + 36, paint);
+        canvas.drawText("Frecuencia (Hz)", (left + right) / 2, bottom + 32, paint);
         canvas.save();
         canvas.rotate(-90, 34, (bottom + top) / 2);
         paint.setTextAlign(Paint.Align.CENTER);
@@ -701,28 +701,38 @@ public final class MainActivity extends Activity {
         drawSeries(canvas, paint, measurements, "left", LEFT, "Oído izquierdo", left, right, top, bottom);
         drawSeries(canvas, paint, measurements, "right", RIGHT, "Oído derecho", left, right, top, bottom);
 
-        if (observations != null && !observations.trim().isEmpty()) {
-            paint.setColor(0xffb45309);
-            paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
-            paint.setTextAlign(Paint.Align.LEFT);
-            paint.setTextSize(6.8f);
-            canvas.drawText(observations, left, 532, paint);
-        }
+        // Marco y Nota técnica ampliada para óptima legibilidad
+        paint.setColor(0xfff8faf9);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(left, 496, right, 566, 4, 4, paint);
+        paint.setColor(0xffdc684c);
+        paint.setStrokeWidth(3);
+        canvas.drawLine(left, 496, left, 566, paint);
 
+        paint.setTextAlign(Paint.Align.LEFT);
+        paint.setTextSize(8.5f);
         paint.setColor(0xff8a5140);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
-        paint.setTextAlign(Paint.Align.LEFT);
-        paint.setTextSize(8.2f);
-        canvas.drawText("Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.", left, 544, paint);
+        canvas.drawText("Nota técnica: ", left + 12, 512, paint);
+        float leadW = paint.measureText("Nota técnica: ");
+
+        paint.setColor(0xff3d4d48);
+        paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
+        canvas.drawText("Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador,", left + 12 + leadW, 512, paint);
+        canvas.drawText("existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde", left + 12, 525, paint);
+        canvas.drawText("dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores", left + 12, 538, paint);
+        canvas.drawText("DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.", left + 12, 551, paint);
+
+        paint.setColor(0xff8a0303);
+        paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
+        paint.setTextSize(9.5f);
+        paint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText("Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.", 396, 578, paint);
+
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(7.5f);
-        canvas.drawText("Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).", left, 556, paint);
-        canvas.drawText("Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.", left, 568, paint);
-
-        paint.setTextSize(7.5f);
-        paint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2", 396, 582, paint);
+        canvas.drawText("Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2", 396, 594, paint);
 
         document.finishPage(page);
         ByteArrayOutputStream output = new ByteArrayOutputStream();

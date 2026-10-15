@@ -98,7 +98,9 @@ input[type="text"]:focus, input[type="number"]:focus {
 .left-dot { background: var(--coral); }
 .right-dot { background: var(--green); }
 .result-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 23px; padding-top: 20px; border-top: 1px solid var(--line); }
-.result-disclaimer { margin: 15px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.result-disclaimer-box { margin: 20px 0 0; padding: 14px 18px; background: #f8faf9; border-left: 3px solid var(--coral); border-radius: 4px; }
+.result-disclaimer { margin: 0; color: #3d4d48; font-size: 13.5px; line-height: 1.6; }
+.result-disclaimer strong { color: var(--coral); font-weight: 700; }
 footer.app-footer {
   width: min(100% - 40px, 760px);
   margin: 0 auto;

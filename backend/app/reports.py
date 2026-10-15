@@ -54,7 +54,7 @@ def build_report(payload: ReportRequest) -> bytes:
 
     # Dimensiones del audiograma clínico
     left, right = 140, page_width - 42
-    bottom, top = 175, page_height - 110
+    bottom, top = 195, page_height - 105
     graph_width, graph_height = right - left, top - bottom
 
     # Eje X equidistante
@@ -143,8 +143,8 @@ def build_report(payload: ReportRequest) -> bytes:
         pdf.drawString(legend_x + 8, page_height - 73, label)
 
     # Tabla clínica estandarizada de valores en dB HL
-    table_top = bottom - 38
-    table_row_h = 15
+    table_top = bottom - 34
+    table_row_h = 14
     table_left = 48
     table_right = right
     data_col_w = (table_right - left) / len(FREQUENCIES)
@@ -160,31 +160,31 @@ def build_report(payload: ReportRequest) -> bytes:
     # Encabezado: Frecuencias
     pdf.setFillColor(colors.HexColor("#142b2a"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 8, table_top - 11, "Frecuencia")
+    pdf.drawString(table_left + 8, table_top - 10.5, "Frecuencia")
     for i, f in enumerate(FREQUENCIES):
-        pdf.drawCentredString(col_center(i), table_top - 11, f"{f} Hz")
+        pdf.drawCentredString(col_center(i), table_top - 10.5, f"{f} Hz")
 
     # Fila Oído Izquierdo
     pdf.setFillColor(colors.HexColor("#dc684c"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 8, table_top - table_row_h - 11, "Oído Izq (dB HL)")
+    pdf.drawString(table_left + 8, table_top - table_row_h - 10.5, "Oído Izq (dB HL)")
     pdf.setFont("Helvetica", 8)
     for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("left", f))
         nr = no_response_lookup.get(("left", f), False)
         txt = "NR" if nr else (f"{int(round(val))}" if val is not None else "—")
-        pdf.drawCentredString(col_center(i), table_top - table_row_h - 11, txt)
+        pdf.drawCentredString(col_center(i), table_top - table_row_h - 10.5, txt)
 
     # Fila Oído Derecho
     pdf.setFillColor(colors.HexColor("#237e72"))
     pdf.setFont("Helvetica-Bold", 8)
-    pdf.drawString(table_left + 8, table_top - table_row_h * 2 - 11, "Oído Der (dB HL)")
+    pdf.drawString(table_left + 8, table_top - table_row_h * 2 - 10.5, "Oído Der (dB HL)")
     pdf.setFont("Helvetica", 8)
     for i, f in enumerate(FREQUENCIES):
         val = lookup.get(("right", f))
         nr = no_response_lookup.get(("right", f), False)
         txt = "NR" if nr else (f"{int(round(val))}" if val is not None else "—")
-        pdf.drawCentredString(col_center(i), table_top - table_row_h * 2 - 11, txt)
+        pdf.drawCentredString(col_center(i), table_top - table_row_h * 2 - 10.5, txt)
 
     # Líneas de contorno y cuadrícula de la tabla
     pdf.setStrokeColor(colors.HexColor("#d5dfdb"))
@@ -200,44 +200,39 @@ def build_report(payload: ReportRequest) -> bytes:
         pdf.line(x_div, table_top, x_div, table_bottom)
     pdf.line(table_right, table_top, table_right, table_bottom)
 
-    # Notas aclaratorias y pie institucional
-    obs = payload.observations or payload.observaciones
-    if obs:
-        clean_obs = unicodedata.normalize("NFC", obs.strip()).encode("latin-1", "replace").decode("latin-1")
-        pdf.setFillColor(colors.HexColor("#b45309"))
-        pdf.setFont("Helvetica-Bold", 7.0)
-        if len(clean_obs) > 120:
-            split_idx = clean_obs.rfind(" ", 0, 120)
-            if split_idx == -1:
-                split_idx = 120
-            pdf.drawString(table_left, 78, clean_obs[:split_idx])
-            pdf.drawString(table_left, 68, clean_obs[split_idx:].strip())
-            y_text = 57
-        else:
-            pdf.drawString(table_left, 76, clean_obs)
-            y_text = 64
-        pdf.setFillColor(colors.HexColor("#8a5140"))
-        pdf.setFont("Helvetica-Bold", 7.5)
-        pdf.drawString(table_left, y_text, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
-        pdf.setFillColor(colors.HexColor("#526260"))
-        pdf.setFont("Helvetica", 6.8)
-        pdf.drawString(table_left, y_text - 10, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
-        pdf.drawString(table_left, y_text - 19, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
-    else:
-        pdf.setFillColor(colors.HexColor("#8a5140"))
-        pdf.setFont("Helvetica-Bold", 7.8)
-        pdf.drawString(table_left, 66, "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6) sobre ganancia digital controlada.")
-        pdf.setFillColor(colors.HexColor("#526260"))
-        pdf.setFont("Helvetica", 7.2)
-        pdf.drawString(table_left, 54, "Debido al uso de hardware no calibrado en acoplador, existe incertidumbre instrumental (σ ≈ ±7-10 dB; Masalski et al., 2014).")
-        pdf.drawString(table_left, 43, "Herramienta de tamizaje educativo; no sustituye audiometría diagnóstica.")
+    # Marco y Nota técnica detallada (con tipografía ampliada para óptima legibilidad)
+    note_w = table_right - table_left
+    pdf.setFillColor(colors.HexColor("#f8faf9"))
+    pdf.roundRect(table_left, 44, note_w, 68, 4, fill=1, stroke=0)
+    pdf.setStrokeColor(colors.HexColor("#dc684c"))
+    pdf.setLineWidth(3)
+    pdf.line(table_left, 44, table_left, 112)
+
+    note_lines = [
+        ("Nota técnica: ", "Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador,"),
+        ("", "existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde"),
+        ("", "dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores"),
+        ("", "DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.")
+    ]
+
+    y_positions = [98, 84.5, 71, 57.5]
+    for (lead, rest), y in zip(note_lines, y_positions):
+        x = table_left + 12
+        if lead:
+            pdf.setFillColor(colors.HexColor("#8a5140"))
+            pdf.setFont("Helvetica-Bold", 8.8)
+            pdf.drawString(x, y, lead)
+            x += pdf.stringWidth(lead, "Helvetica-Bold", 8.8)
+        pdf.setFillColor(colors.HexColor("#3d4d48"))
+        pdf.setFont("Helvetica", 8.8)
+        pdf.drawString(x, y, rest)
 
     pdf.setFillColor(colors.HexColor("#8a0303"))
     pdf.setFont("Helvetica-Bold", 9.5)
     pdf.drawCentredString(page_width / 2, 29, "Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.")
 
     pdf.setFillColor(colors.HexColor("#87938c"))
-    pdf.setFont("Helvetica", 7.2)
+    pdf.setFont("Helvetica", 7.5)
     pdf.drawCentredString(page_width / 2, 16, "Desarrollado por Cielo Isabel Ochoa y Juan José Guerrero · Ing. de Sonido, Univ. de San Buenaventura Medellín · Psicoacústica 2026-2")
 
     pdf.showPage()

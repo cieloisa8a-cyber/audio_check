@@ -908,33 +908,12 @@ function updateResultActionButtons() {
   renderResultsUncertaintyNotice();
 }
 
+const TECHNICAL_NOTE_TEXT = "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador, existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.";
+
 function renderResultsUncertaintyNotice() {
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  let noteEl = document.querySelector("#results-hardware-note");
-  if (isMobile) {
-    if (!noteEl) {
-      noteEl = document.createElement("p");
-      noteEl.id = "results-hardware-note";
-      noteEl.className = "result-disclaimer hardware-uncertainty-note";
-      const disclaimer = document.querySelector(".result-disclaimer");
-      if (disclaimer && disclaimer.parentNode) {
-        disclaimer.parentNode.insertBefore(noteEl, disclaimer);
-      } else if (elements.resultsPanel) {
-        elements.resultsPanel.appendChild(noteEl);
-      }
-    }
-    noteEl.style.marginTop = "0.75rem";
-    noteEl.style.padding = "0.6rem 0.8rem";
-    noteEl.style.borderRadius = "6px";
-    noteEl.style.backgroundColor = "rgba(217, 119, 6, 0.1)";
-    noteEl.style.borderLeft = "3px solid #d97706";
-    noteEl.style.color = "#b45309";
-    noteEl.style.fontSize = "0.82rem";
-    noteEl.style.lineHeight = "1.4";
-    noteEl.textContent = "Nota de Incertidumbre de Hardware: Evaluación realizada en dispositivo móvil. Los umbrales presentados incluyen compensación matemática (Shaped Dither) debido a limitaciones de cuantización del DAC de 16-bits a bajos volúmenes.";
-    noteEl.hidden = false;
-  } else if (noteEl) {
-    noteEl.hidden = true;
+  const disclaimerEl = document.querySelector(".result-disclaimer");
+  if (disclaimerEl) {
+    disclaimerEl.innerHTML = `<strong>Nota técnica:</strong> ${TECHNICAL_NOTE_TEXT.replace(/^Nota técnica:\s*/, "")}`;
   }
 }
 
@@ -1158,16 +1137,13 @@ function getReportPayload() {
   const patientName = sessionPatientName || elements.patientName?.value?.trim() || null;
   const ageRaw = sessionPatientAge || parseInt(elements.patientAge?.value, 10);
   const patientAge = (!Number.isNaN(ageRaw) && ageRaw > 0) ? ageRaw : null;
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const hardwareNote = "Nota de Incertidumbre de Hardware: Evaluación realizada en dispositivo móvil. Los umbrales presentados incluyen compensación matemática (Shaped Dither) debido a limitaciones de cuantización del DAC de 16-bits a bajos volúmenes.";
-  const observations = isMobile ? hardwareNote : null;
 
   return {
     measurements,
     patient_name: patientName,
     patient_age: patientAge,
-    observations: observations,
-    observaciones: observations,
+    observations: TECHNICAL_NOTE_TEXT,
+    observaciones: TECHNICAL_NOTE_TEXT,
   };
 }
 
