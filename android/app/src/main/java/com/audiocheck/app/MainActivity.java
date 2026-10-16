@@ -229,7 +229,7 @@ public final class MainActivity extends Activity {
     public void lockVolumeTo50Percent() {
         if (audioManager != null) {
             int maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-            int targetVol = Math.max(1, Math.round(maxVol * 0.22f)); // Rango óptimo 20% - 25%
+            int targetVol = Math.max(1, Math.round(maxVol * 0.50f)); // Fijar al 50% para coincidir con C_ref = 85 dB SPL
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0);
         }
     }
@@ -665,7 +665,7 @@ public final class MainActivity extends Activity {
         paint.setColor(MUTED);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
         paint.setTextSize(10);
-        canvas.drawText("Umbral auditivo estimado · dB HL (Compensación RETSPL relativa)", 48, 68, paint);
+        canvas.drawText("Umbral auditivo relativo estimado · dB HL (re: ajuste biológico 1 kHz / RETSPL)", 48, 68, paint);
 
         if (patientName != null || patientAge != null) {
             StringBuilder info = new StringBuilder();
@@ -788,24 +788,25 @@ public final class MainActivity extends Activity {
         // Marco y Nota técnica ampliada para óptima legibilidad
         paint.setColor(0xfff8faf9);
         paint.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(left, 496, right, 566, 4, 4, paint);
+        canvas.drawRoundRect(left, 494, right, 568, 4, 4, paint);
         paint.setColor(0xffdc684c);
         paint.setStrokeWidth(3);
-        canvas.drawLine(left, 496, left, 566, paint);
+        canvas.drawLine(left, 494, left, 568, paint);
 
         paint.setTextAlign(Paint.Align.LEFT);
-        paint.setTextSize(8.5f);
+        paint.setTextSize(7.8f);
         paint.setColor(0xff8a5140);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));
-        canvas.drawText("Nota técnica: ", left + 12, 512, paint);
+        canvas.drawText("Nota técnica: ", left + 12, 508, paint);
         float leadW = paint.measureText("Nota técnica: ");
 
         paint.setColor(0xff3d4d48);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL));
-        canvas.drawText("Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador,", left + 12 + leadW, 512, paint);
-        canvas.drawText("existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde", left + 12, 525, paint);
-        canvas.drawText("dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores", left + 12, 538, paint);
-        canvas.drawText("DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.", left + 12, 551, paint);
+        canvas.drawText("Resultados expresados en escala relativa aproximada (dB HL re: compensación RETSPL ANSI S3.6 y ajuste biológico previo). En hardware", left + 12 + leadW, 508, paint);
+        canvas.drawText("de consumo sin calibración electroacústica en acoplador (IEC 60318), el nivel de presión sonora real varía según el DAC, la impedancia", left + 12, 521, paint);
+        canvas.drawText("del transductor y la curva de volumen del sistema operativo, pudiendo inducir desfases sistemáticos de 30–60 dB cuando se emplea únicamente", left + 12, 534, paint);
+        canvas.drawText("un porcentaje fijo de volumen. La literatura reporta una incertidumbre residual de σ ≈ ±7–10 dB únicamente tras aplicar calibración", left + 12, 547, paint);
+        canvas.drawText("biológica por dispositivo (Masalski et al., 2014). Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.", left + 12, 560, paint);
 
         paint.setColor(0xff8a0303);
         paint.setTypeface(Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD));

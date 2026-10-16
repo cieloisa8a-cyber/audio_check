@@ -7,8 +7,9 @@ const FREQUENCIES = [250, 500, 1000, 2000, 4000, 8000];
 const TEST_ORDER = [1000, 2000, 4000, 8000, 500, 250];
 
 // ---------------------------------------------------------------------------
-// Modelo de nivel: dB HL estimados con compensación RETSPL relativa
-//   dBFS(f, L_HL) = L_HL + RETSPL_rel(f) - C_ref
+// Modelo de nivel: dB HL relativos con compensación RETSPL y ajuste biológico
+//   dBFS(f, L_HL) = L_HL + RETSPL_rel(f) - C_ref_efectivo
+//   C_ref_efectivo = C_REF_DB + calibrationOffsetDb (ajuste biológico en 1 kHz)
 // RETSPL de referencia (ANSI S3.6, auricular supraaural clásico), en dB SPL.
 // Sólo se usa su FORMA espectral: sin la sensibilidad (dB SPL/V) del auricular
 // del paciente no hay trazabilidad absoluta, por eso los dB HL son "estimados".
@@ -23,20 +24,30 @@ const RETSPL_REL = {
 };
 const HL_MIN = 0;
 const HL_MAX = 80;
-// Optimización de resolución digital (C_ref = 120 dB):
-// Al elevar C_ref a 120, los tonos de baja amplitud ganan bits de resolución digital.
-// Como HL_MAX es 80, el nivel más alto (105.5 dB SPL @ 250 Hz) llegará a -14.5 dBFS,
-// garantizando que el compresor no sature y limpiando la distorsión de cuantización en 0-40 dB HL.
-const C_REF_DB = 120;
+// Referencia digital base (C_ref = 85 dB): valor empírico ≈ 85 dB SPL a 0 dBFS con el
+// volumen físico del dispositivo al 50%. El ajuste biológico en 1 kHz (calibrationOffsetDb)
+// desplaza esta referencia por sesión para compensar DAC, impedancia del transductor y
+// curva de volumen del sistema operativo.
+const C_REF_DB = 85;
+// Techo digital: evita saturación (clipping) cuando el algoritmo sube a 70-80 dB HL
+// en frecuencias con RETSPL elevado (p. ej. 250 Hz).
+const DBFS_CEILING = -0.5;
+const MAX_LINEAR_AMPLITUDE = 0.95;
+// Ajuste biológico de la sesión (dB), fijado con el deslizador de calibración a 1000 Hz.
+let calibrationOffsetDb = 0;
+
+function effectiveCRef() {
+  return C_REF_DB + calibrationOffsetDb;
+}
 
 function hlToDbfs(frequency, levelHl) {
   if (levelHl === null || levelHl === undefined) return null;
-  return levelHl + RETSPL_REL[frequency] - C_REF_DB;
+  return Math.min(DBFS_CEILING, levelHl + RETSPL_REL[frequency] - effectiveCRef());
 }
 
 function dbfsToHl(frequency, dbfs) {
   if (dbfs === null || dbfs === undefined) return null;
-  return dbfs - RETSPL_REL[frequency] + C_REF_DB;
+  return dbfs - RETSPL_REL[frequency] + effectiveCRef();
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +155,9 @@ const elements = {
   confirmDeviceBtn: document.querySelector("#confirm-device-btn"),
   patientName: document.querySelector("#patient-name"),
   patientAge: document.querySelector("#patient-age"),
+  calibrationPlayButton: document.querySelector("#calibration-play-button"),
+  calibrationSlider: document.querySelector("#calibration-slider"),
+  calibrationValue: document.querySelector("#calibration-value"),
 };
 
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -159,8 +173,6 @@ let headphoneCheckRequest = 0;
 let headphoneWarningAcknowledged = false;
 let isQaMode = false;
 let activeOscillator;
-let ditherNode = null;
-let ditherGain = null;
 let playbackTimer;
 let playbackId = 0;
 let selectedAudioDeviceId = "";
@@ -599,7 +611,8 @@ async function startTest() {
   audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
   await audioContext.resume();
   await applyAudioSink();
-  startDither();
+  // La audiometría formal arranca en silencio: se detiene el tono de calibración si sigue sonando.
+  stopCalibrationTone();
 
   // En Android activa el bloqueo de teclas de volumen durante la prueba
   if (window.AndroidApp?.setVolumeLockActive) {
@@ -663,14 +676,13 @@ async function playTone() {
     audioContext ||= new AudioContextClass();
     await audioContext.resume();
     await applyAudioSink();
-    startDither();
 
     const currentPlaybackId = ++playbackId;
     const frequency = currentFrequency();
 
     // Síntesis matemática en tiempo real: seno puro, sin archivos de audio.
     const levelDbfs = hlToDbfs(frequency, currentLevel);
-    const amplitude = Math.min(10 ** (levelDbfs / 20), 1);
+    const amplitude = Math.min(10 ** (levelDbfs / 20), MAX_LINEAR_AMPLITUDE);
     const oscillator = audioContext.createOscillator();
     activeOscillator = oscillator;
     const envelope = audioContext.createGain();
@@ -735,17 +747,117 @@ function raisedCosineRamp(peak, rising) {
 }
 
 // ---------------------------------------------------------------------------
-// Inyección de Shaped Dither (Ruido Blanco con Filtro Paso Alto a 12 kHz):
-// Protege contra la distorsión de cuantificación del DAC móvil en Android e iOS
-// (iPhone / iPad), conmutando el LSB y desplazando la energía estocástica fuera
-// de la banda de mayor sensibilidad auditiva humana (> 12 kHz).
-// En navegadores de escritorio (Windows/Mac), se desactiva para mantener la señal pura.
-// Cadena: ditherNode -> highpassFilter (12 kHz) -> ditherGain (0.002) -> audioContext.destination
+// Calibración biológica rápida en 1000 Hz (previa a la prueba)
+// Tono pulsante (500 ms encendido / 500 ms apagado) al equivalente de 5 dB HL.
+// El usuario mueve el deslizador hasta que el tono sea APENAS PERCEPTIBLE; el valor
+// del deslizador se aplica como calibrationOffsetDb sobre C_ref durante la sesión.
+// Offset positivo => C_ref efectivo mayor => tono más suave (y viceversa).
 // ---------------------------------------------------------------------------
-function startDither() {
-  // Desactivado: El generador continuo de dither inyectaba un siseo estático ("shhh")
-  // audible a -54 dBFS (ganancia 0.002). Al apagarlo, el fondo queda en silencio absoluto.
-  return;
+const CALIBRATION_FREQUENCY_HZ = 1000;
+const CALIBRATION_LEVEL_HL = 5;
+const CALIBRATION_PULSE_ON_S = 0.5;
+const CALIBRATION_PULSE_PERIOD_MS = 1000;
+let calibrationOscillator = null;
+let calibrationGain = null;
+let calibrationPulseTimer = null;
+let calibrationStarting = false;
+
+function calibrationAmplitude() {
+  const levelDbfs = hlToDbfs(CALIBRATION_FREQUENCY_HZ, CALIBRATION_LEVEL_HL);
+  return Math.min(10 ** (levelDbfs / 20), MAX_LINEAR_AMPLITUDE);
+}
+
+// Programa un pulso con rampas de 20 ms; lee el offset vigente en cada pulso,
+// por lo que el ajuste del deslizador se escucha en el siguiente pulso (≤ 1 s).
+function scheduleCalibrationPulse() {
+  if (!audioContext || !calibrationGain) return;
+  const amplitude = calibrationAmplitude();
+  const t0 = audioContext.currentTime + 0.01;
+  const gain = calibrationGain.gain;
+  gain.cancelScheduledValues(t0);
+  gain.setValueAtTime(0, t0);
+  gain.linearRampToValueAtTime(amplitude, t0 + RAMP_DURATION_S);
+  gain.setValueAtTime(amplitude, t0 + CALIBRATION_PULSE_ON_S - RAMP_DURATION_S);
+  gain.linearRampToValueAtTime(0, t0 + CALIBRATION_PULSE_ON_S);
+}
+
+async function startCalibrationTone() {
+  if (calibrationOscillator || calibrationStarting) return;
+  calibrationStarting = true;
+  try {
+    audioContext ||= new AudioContextClass();
+    await audioContext.resume();
+    await applyAudioSink();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = CALIBRATION_FREQUENCY_HZ;
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+    calibrationOscillator = oscillator;
+    calibrationGain = gainNode;
+    scheduleCalibrationPulse();
+    calibrationPulseTimer = window.setInterval(scheduleCalibrationPulse, CALIBRATION_PULSE_PERIOD_MS);
+  } catch (error) {
+    console.error("Error al reproducir tono de calibración:", error);
+    stopCalibrationTone();
+  } finally {
+    calibrationStarting = false;
+    updateCalibrationUi();
+  }
+}
+
+function stopCalibrationTone() {
+  if (calibrationPulseTimer) {
+    window.clearInterval(calibrationPulseTimer);
+    calibrationPulseTimer = null;
+  }
+  if (calibrationOscillator) {
+    const oscillator = calibrationOscillator;
+    const gainNode = calibrationGain;
+    try {
+      const now = audioContext.currentTime;
+      if (gainNode.gain.cancelAndHoldAtTime) gainNode.gain.cancelAndHoldAtTime(now);
+      else gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setTargetAtTime(0, now, 0.008); // desvanecido corto: sin clic
+      oscillator.stop(now + 0.06);
+      oscillator.addEventListener("ended", () => {
+        try { oscillator.disconnect(); gainNode.disconnect(); } catch { /* ya desconectado */ }
+      }, { once: true });
+    } catch (e) {
+      console.warn("Error al detener tono de calibración:", e);
+    }
+    calibrationOscillator = null;
+    calibrationGain = null;
+  }
+  updateCalibrationUi();
+}
+
+function toggleCalibrationTone() {
+  if (calibrationOscillator) stopCalibrationTone();
+  else startCalibrationTone();
+}
+
+function setCalibrationOffset(value) {
+  const parsed = Number(value);
+  calibrationOffsetDb = Number.isFinite(parsed) ? parsed : 0;
+  updateCalibrationUi();
+}
+
+function updateCalibrationUi() {
+  const playing = Boolean(calibrationOscillator);
+  if (elements.calibrationPlayButton) {
+    elements.calibrationPlayButton.textContent = playing
+      ? "■ Detener tono de calibración"
+      : "▶ Reproducir tono de calibración (1000 Hz)";
+    elements.calibrationPlayButton.setAttribute("aria-pressed", String(playing));
+  }
+  if (elements.calibrationValue) {
+    const sign = calibrationOffsetDb > 0 ? "+" : "";
+    elements.calibrationValue.textContent = `Ajuste biológico: ${sign}${calibrationOffsetDb} dB`;
+  }
 }
 
 // Hughson-Westlake modificado (ASHA, 2005) con Fase de Familiarización estricta:
@@ -919,7 +1031,7 @@ function updateResultActionButtons() {
   renderResultsUncertaintyNotice();
 }
 
-const TECHNICAL_NOTE_TEXT = "Nota técnica: Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador, existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.";
+const TECHNICAL_NOTE_TEXT = "Nota técnica: Resultados expresados en escala relativa aproximada (dB HL re: compensación RETSPL ANSI S3.6 y ajuste biológico previo). En hardware de consumo sin calibración electroacústica en acoplador (IEC 60318), el nivel de presión sonora real varía según el DAC, la impedancia del transductor y la curva de volumen del sistema operativo, pudiendo inducir desfases sistemáticos de 30–60 dB cuando se emplea únicamente un porcentaje fijo de volumen. La literatura reporta una incertidumbre residual de σ ≈ ±7–10 dB únicamente tras aplicar calibración biológica por dispositivo (Masalski et al., 2014). Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.";
 
 function renderResultsUncertaintyNotice() {
   const disclaimerEl = document.querySelector(".result-disclaimer");
@@ -952,15 +1064,7 @@ function stopTestAndReset() {
     activeOscillator = null;
   }
   isPlaying = false;
-
-  if (ditherNode) {
-    try {
-      ditherNode.stop();
-      ditherNode.disconnect();
-    } catch (e) {}
-    ditherNode = null;
-    ditherGain = null;
-  }
+  stopCalibrationTone();
 
   if (window.AndroidApp?.setVolumeLockActive) {
     window.AndroidApp.setVolumeLockActive(false);
@@ -1000,6 +1104,10 @@ function resetSession() {
   try { activeOscillator?.stop(); } catch { /* ya detenido */ }
   activeOscillator = null;
   isPlaying = false;
+  // Nuevo paciente => nuevo ajuste biológico.
+  stopCalibrationTone();
+  if (elements.calibrationSlider) elements.calibrationSlider.value = "0";
+  setCalibrationOffset(0);
 
   measurements.length = 0;
   currentEar = "left";
@@ -1392,6 +1500,8 @@ elements.startButton.addEventListener("click", startTest);
 elements.playButton.addEventListener("click", playTone);
 elements.heardButton.addEventListener("click", () => recordResponse(true));
 elements.stopButton?.addEventListener("click", stopTestAndReset);
+elements.calibrationPlayButton?.addEventListener("click", toggleCalibrationTone);
+elements.calibrationSlider?.addEventListener("input", (e) => setCalibrationOffset(e.target.value));
 elements.notHeardButton.addEventListener("click", () => recordResponse(false));
 elements.pdfButton.addEventListener("click", exportPdf);
 elements.shareButton.addEventListener("click", shareResults);
@@ -1460,24 +1570,18 @@ updateSetupState();
 updateResultActionButtons();
 renderResultsUncertaintyNotice();
 
-// Asegurar que la instrucción de volumen en todos los sistemas pida estrictamente 20% a 25%
+// Asegurar que la instrucción de volumen en todos los sistemas pida el 50% + ajuste biológico
 const noticeP = document.querySelector(".calibration-notice p");
 if (noticeP) {
-  noticeP.innerHTML = "<strong>Configuración obligatoria:</strong> Ajustar el volumen del dispositivo entre un 20% y 25%. Desactiva mejoras de audio y no modifiques el volumen durante la prueba.";
+  noticeP.innerHTML = "<strong>1. Ajusta el volumen físico de tu dispositivo al 50%.</strong> Desactiva mejoras de audio y no modifiques el volumen durante la prueba.";
 }
 const finePrintP = document.querySelector(".fine-print");
 if (finePrintP) {
-  finePrintP.textContent = "Tono puro de 1 segundo en escala clínica estimada dB HL (Ajustar el volumen del dispositivo entre un 20% y 25%).";
+  finePrintP.textContent = "Tono puro de 1 segundo en escala relativa dB HL (volumen del dispositivo al 50% y ajuste biológico en 1 kHz aplicado).";
 }
+updateCalibrationUi();
 
 if (window.AndroidApp?.setVolumeLockActive) {
   window.AndroidApp.setVolumeLockActive(false);
 }
 
-["click", "pointerdown", "touchstart"].forEach((evt) => {
-  document.addEventListener(evt, () => {
-    if (audioContext && audioContext.state === "running") {
-      startDither();
-    }
-  }, { passive: true });
-});

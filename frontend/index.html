@@ -75,8 +75,18 @@
       <div class="notice calibration-notice" role="note">
         <span class="notice-icon" aria-hidden="true">!</span>
         <div>
-          <p><strong>Configuración obligatoria:</strong> Ajustar el volumen del dispositivo entre un 20% y 25%.
-            Desactiva mejoras de audio y no modifiques el volumen durante la prueba.</p>
+          <p><strong>1. Ajusta el volumen físico de tu dispositivo al 50%.</strong> Desactiva mejoras de audio y no modifiques el volumen durante la prueba.</p>
+        </div>
+      </div>
+      <div class="calibration-block" role="region" aria-labelledby="calibration-title">
+        <p id="calibration-title" class="calibration-heading"><strong>2. Calibración biológica del equipo (1000 Hz)</strong></p>
+        <p class="calibration-instruction">Ajusta este deslizador hasta que el tono sea APENAS PERCEPTIBLE (umbral mínimo).</p>
+        <div class="calibration-controls">
+          <button id="calibration-play-button" class="button button-quiet calibration-play-btn" type="button" aria-pressed="false">▶ Reproducir tono de calibración (1000 Hz)</button>
+          <div class="calibration-slider-wrap">
+            <input id="calibration-slider" type="range" min="-25" max="25" step="5" value="0" aria-label="Ajusta este deslizador hasta que el tono sea APENAS PERCEPTIBLE (umbral mínimo)">
+            <span id="calibration-value" class="calibration-value-badge">Ajuste biológico: 0 dB</span>
+          </div>
         </div>
       </div>
       <div class="setup-actions">
@@ -115,8 +125,7 @@
         </button>
       </div>
       <p id="test-status" class="support-message" aria-live="polite"></p>
-      <p class="fine-print">Tono puro de 1 segundo en escala clínica estimada dB HL (Ajustar el volumen del dispositivo
-        entre un 20% y 25%).</p>
+      <p class="fine-print">Tono puro de 1 segundo en escala relativa dB HL (volumen del dispositivo al 50% y ajuste biológico en 1 kHz aplicado).</p>
     </section>
 
     <section id="results-panel" class="workspace results-panel" aria-labelledby="results-title" hidden>
@@ -127,7 +136,7 @@
         </div>
         <span class="step-count">03 <span>/ 03</span></span>
       </div>
-      <p class="chart-caption">Umbral auditivo estimado · dB HL <span>(Compensación RETSPL relativa)</span></p>
+      <p class="chart-caption">Umbral auditivo relativo estimado · dB HL <span>(re: ajuste biológico 1 kHz / RETSPL)</span></p>
       <div class="chart-wrap"><canvas id="audiogram" role="img"
           aria-label="Gráfica de niveles percibidos por frecuencia en dB HL"></canvas></div>
       <div class="chart-legend">
@@ -148,12 +157,7 @@
         <button id="new-session-button" class="button button-text" type="button">Nueva sesión</button>
       </div>
       <div class="result-disclaimer-box">
-        <p class="result-disclaimer"><strong>Nota técnica:</strong> Resultados en escala dB HL aproximada (ref. ANSI
-          S3.6). Debido al uso de transductores no calibrados en acoplador, existe incertidumbre instrumental de
-          ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde dispositivos
-          móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a
-          los conversores DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en
-          psicoacústica; no sustituye una audiometría diagnóstica clínica.</p>
+        <p class="result-disclaimer"><strong>Nota técnica:</strong> Resultados expresados en escala relativa aproximada (dB HL re: compensación RETSPL ANSI S3.6 y ajuste biológico previo). En hardware de consumo sin calibración electroacústica en acoplador (IEC 60318), el nivel de presión sonora real varía según el DAC, la impedancia del transductor y la curva de volumen del sistema operativo, pudiendo inducir desfases sistemáticos de 30–60 dB cuando se emplea únicamente un porcentaje fijo de volumen. La literatura reporta una incertidumbre residual de σ ≈ ±7–10 dB únicamente tras aplicar calibración biológica por dispositivo (Masalski et al., 2014). Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.</p>
       </div>
     </section>
   </main>

@@ -50,7 +50,7 @@ def build_report(payload: ReportRequest) -> bytes:
     pdf.drawString(48, page_height - 50, "Resumen auditivo")
     pdf.setFillColor(colors.HexColor("#526260"))
     pdf.setFont("Helvetica", 10)
-    pdf.drawString(48, page_height - 66, "Umbral auditivo estimado · dB HL (Compensación RETSPL relativa)")
+    pdf.drawString(48, page_height - 66, "Umbral auditivo relativo estimado · dB HL (re: ajuste biológico 1 kHz / RETSPL)")
 
     patient_items = []
     if payload.patient_name:
@@ -256,33 +256,34 @@ def build_report(payload: ReportRequest) -> bytes:
     # Marco y Nota técnica detallada (con tipografía ampliada para óptima legibilidad)
     note_w = table_right - table_left
     pdf.setFillColor(colors.HexColor("#f8faf9"))
-    pdf.roundRect(table_left, 44, note_w, 68, 4, fill=1, stroke=0)
+    pdf.roundRect(table_left, 40, note_w, 74, 4, fill=1, stroke=0)
     pdf.setStrokeColor(colors.HexColor("#dc684c"))
     pdf.setLineWidth(3)
-    pdf.line(table_left, 44, table_left, 112)
+    pdf.line(table_left, 40, table_left, 114)
 
     note_lines = [
-        ("Nota técnica: ", "Resultados en escala dB HL aproximada (ref. ANSI S3.6). Debido al uso de transductores no calibrados en acoplador,"),
-        ("", "existe incertidumbre instrumental de ganancia física (σ ≈ ±7-10 dB; Masalski et al., 2014). Adicionalmente, en la evaluación desde"),
-        ("", "dispositivos móviles, se implementó compensación DSP (Shaped Dither) para mitigar el ruido de cuantificación inherente a los conversores"),
-        ("", "DAC de 16-bits en umbrales de baja amplitud. Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.")
+        ("Nota técnica: ", "Resultados expresados en escala relativa aproximada (dB HL re: compensación RETSPL ANSI S3.6 y ajuste biológico previo). En hardware"),
+        ("", "de consumo sin calibración electroacústica en acoplador (IEC 60318), el nivel de presión sonora real varía según el DAC, la impedancia"),
+        ("", "del transductor y la curva de volumen del sistema operativo, pudiendo inducir desfases sistemáticos de 30–60 dB cuando se emplea únicamente"),
+        ("", "un porcentaje fijo de volumen. La literatura reporta una incertidumbre residual de σ ≈ ±7–10 dB únicamente tras aplicar calibración"),
+        ("", "biológica por dispositivo (Masalski et al., 2014). Herramienta de tamizaje académico en psicoacústica; no sustituye una audiometría diagnóstica clínica.")
     ]
 
-    y_positions = [98, 84.5, 71, 57.5]
+    y_positions = [102, 88.5, 75, 61.5, 48]
     for (lead, rest), y in zip(note_lines, y_positions):
         x = table_left + 12
         if lead:
             pdf.setFillColor(colors.HexColor("#8a5140"))
-            pdf.setFont("Helvetica-Bold", 8.8)
+            pdf.setFont("Helvetica-Bold", 8.0)
             pdf.drawString(x, y, lead)
-            x += pdf.stringWidth(lead, "Helvetica-Bold", 8.8)
+            x += pdf.stringWidth(lead, "Helvetica-Bold", 8.0)
         pdf.setFillColor(colors.HexColor("#3d4d48"))
-        pdf.setFont("Helvetica", 8.8)
+        pdf.setFont("Helvetica", 8.0)
         pdf.drawString(x, y, rest)
 
     pdf.setFillColor(colors.HexColor("#8a0303"))
     pdf.setFont("Helvetica-Bold", 9.5)
-    pdf.drawCentredString(page_width / 2, 29, "Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.")
+    pdf.drawCentredString(page_width / 2, 27, "Esta gráfica es referencial y no sustituye un diagnóstico audiológico profesional.")
 
     pdf.setFillColor(colors.HexColor("#87938c"))
     pdf.setFont("Helvetica", 7.5)

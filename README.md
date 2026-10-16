@@ -49,7 +49,7 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
 - **Protección de hardware y rigor de prueba:**
   - Detección en tiempo real de audífonos con cable (Jack 3.5 mm / USB-C).
   - Pausa/reinicio de seguridad automático ante desconexión física de auriculares.
-  - Instrucción unificada de volumen físico calibrado entre un **20% y 25%** del dispositivo ($C_{ref} = 120\text{ dB}$).
+  - Instrucción unificada de volumen físico calibrado al **50%** del dispositivo con ajuste previo de calibración biológica en 1000 Hz ($C_{ref} = 85\text{ dB SPL}$).
 
 ---
 
@@ -180,7 +180,7 @@ La aplicación móvil conecta el frontend optimizado con capacidades nativas del
 1. **Datos del paciente:** Ingresa el nombre y edad en el formulario inicial.
 2. **Entorno y calibración:**
    - Conecta auriculares con cable (no usar altavoces ni auriculares Bluetooth con compresión/latencia).
-   - Ajusta el volumen físico del dispositivo entre el **20% y 25%**.
+   - Ajusta el volumen físico del dispositivo al **50%** y realiza el ajuste de calibración biológica en 1000 Hz.
    - Sitúate en una habitación silenciosa libre de ruido ambiental.
 3. **Ejecución (Protocolo ASHA 2005):**
    - Para cada frecuencia, reproduce el tono de prueba.
