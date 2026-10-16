@@ -49,7 +49,9 @@ La aplicación permite evaluar ambos oídos de forma independiente o consecutiva
 - **Protección de hardware y rigor de prueba:**
   - Detección en tiempo real de audífonos con cable (Jack 3.5 mm / USB-C).
   - Pausa/reinicio de seguridad automático ante desconexión física de auriculares.
-  - Instrucción unificada de volumen físico calibrado al **50%** del dispositivo con ajuste previo de calibración biológica en 1000 Hz ($C_{ref} = 85\text{ dB SPL}$).
+  - **Calibración biológica pre-test en 1000 Hz:** Ajuste interactivo de $\pm 25\text{ dB}$ para sintonizar el piso de audición mínimo ($5\text{ dB HL}$) según el DAC y transductor del usuario.
+  - **Orientación vertical estática:** Bloqueo estricto en modo vertical (`portrait`) en Android y PWA para evitar reinicios involuntarios por giros del dispositivo.
+  - **Calibración psicoacústica $C_{ref} = 85\text{ dB SPL}$:** Volumen físico unificado al **50%** con protección digital contra clipping ($\le -0.5\text{ dBFS}$ y amplitud lineal $\le 0.95$).
 
 ---
 
